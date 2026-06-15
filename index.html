@@ -106,6 +106,28 @@
   @keyframes pop { 0% { transform: var(--pos) scale(1); } 50% { transform: var(--pos) scale(1.16); } 100% { transform: var(--pos) scale(1); } }
   @keyframes spawn { 0% { transform: var(--pos) scale(0); } 100% { transform: var(--pos) scale(1); } }
 
+  /* Annihilation flash where a 1 clears its partner. */
+  .burst {
+    position: absolute;
+    width: calc((100% - 3 * var(--gap)) / 4);
+    height: calc((100% - 3 * var(--gap)) / 4);
+    border-radius: 1.6vmin;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(242,177,52,0.95) 0%, rgba(242,177,52,0.45) 35%, rgba(242,177,52,0) 70%);
+    animation: burst 0.42s ease-out forwards;
+    z-index: 4;
+  }
+  @keyframes burst {
+    0%   { transform: var(--pos) scale(0.35); opacity: 1; }
+    100% { transform: var(--pos) scale(1.9); opacity: 0; }
+  }
+  .board-wrap.shake { animation: shake 0.18s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(0.8vmin, -0.4vmin); }
+    75% { transform: translate(-0.8vmin, 0.4vmin); }
+  }
+
   .tile { background: #6c5ce7; color: #fff; }
   /* Inert "1" tiles: muted, locked-looking. Only a pair of 1s can clear. */
   .tile.one {
@@ -189,6 +211,7 @@
   const overlayMsg = document.getElementById("overlay-msg");
 
   let grid, score, best, idCounter;
+  let bursts = [];   // impact cells (working space) collected during a move
   best = parseInt(localStorage.getItem("bestDivide") || "0", 10);
 
   // Values a freshly spawned tile can take (weighted toward small).
@@ -304,6 +327,23 @@
     return n;
   }
 
+  // Same clockwise rotation, but for a single (r,c) point; mirrors rotate().
+  function rotatePoint(r, c, times) {
+    for (let i = 0; i < times; i++) { const nr = c, nc = SIZE - 1 - r; r = nr; c = nc; }
+    return [r, c];
+  }
+
+  // Transient flash at a board cell where an annihilation happened.
+  function spawnBurst(r, c) {
+    const el = document.createElement("div");
+    el.className = "burst";
+    const pos = posTransform(r, c);
+    el.style.setProperty("--pos", pos);
+    el.style.transform = pos;
+    el.addEventListener("animationend", () => el.remove());
+    tilesEl.appendChild(el);
+  }
+
   function moveLeft(g) {
     let moved = false;
     for (let r = 0; r < SIZE; r++) {
@@ -316,6 +356,8 @@
         score += x + y - res;
         if (res === 0) {
           // 1 annihilates its larger partner: clear both cells.
+          // Record the impact cell (working space) so move() can flash it.
+          bursts.push([r, i]);
           row.splice(i, 2);
         } else {
           row[i] = { id: row[i].id, value: res, merged: true };
@@ -336,6 +378,7 @@
   function move(dir) {
     if (overlay.classList.contains("show")) return;
     let g = grid;
+    bursts = [];
     // Rotate so the target direction becomes "left", slide, then rotate back.
     // Pre + post rotations sum to a full turn so the grid orientation is restored.
     for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
@@ -345,6 +388,16 @@
     if (moved) {
       addRandom();
       render(false);
+      // Burst positions are in working space; rotate them back like the grid.
+      for (const [br, bc] of bursts) {
+        const [r, c] = rotatePoint(br, bc, dir);
+        spawnBurst(r, c);
+      }
+      if (bursts.length) {
+        wrap.classList.remove("shake");
+        void wrap.offsetWidth;        // restart the animation
+        wrap.classList.add("shake");
+      }
       updateScore();
       if (isGameOver()) endGame();
     }
