@@ -306,9 +306,11 @@
   function move(dir) {
     if (overlay.classList.contains("show")) return;
     let g = grid;
-    for (let i = 0; i < dir; i++) g = rotate(g);
-    const moved = moveLeft(g);
+    // Rotate so the target direction becomes "left", slide, then rotate back.
+    // Pre + post rotations sum to a full turn so the grid orientation is restored.
     for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
+    const moved = moveLeft(g);
+    for (let i = 0; i < dir; i++) g = rotate(g);
     grid = g;
     if (moved) {
       addRandom();
