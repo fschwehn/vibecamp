@@ -214,18 +214,23 @@
   let bursts = [];   // impact cells (working space) collected during a move
   best = parseInt(localStorage.getItem("bestDivide") || "0", 10);
 
-  // Values a freshly spawned tile can take (weighted toward small).
-  // Rich in divisor relationships (2|4|8, 3|6|9) so the board stays playable.
-  // A few 1s seed the "absorbed by a larger neighbor" mechanic.
+  // Values a freshly spawned tile can take.
+  // The board always needs small divisors to work with, so 1 (the "annihilate"
+  // tool) and the small bases 2, 3, 4 get extra weight. On top of that, every
+  // composite number in 1..72 can appear once, for variety.
+  const MAX_SPAWN = 72;
+  function isComposite(n) {
+    if (n < 4) return false;
+    for (let d = 2; d * d <= n; d++) if (n % d === 0) return true;
+    return false;
+  }
   const SPAWN = [
     1, 1, 1, 1,                       // the "annihilate" tool
-    2, 2, 2, 2, 2, 2, 2, 2,           // common small bases
+    2, 2, 2, 2, 2, 2, 2, 2,           // common small bases (divisors for composites)
     3, 3, 3, 3, 3, 3,
-    4, 4, 4, 4,
-    6, 6, 8, 8, 9, 9,
-    12, 16, 18, 24,                   // occasional larger numbers (divisor-rich)
-    36, 48, 64, 72                    // rare big numbers (divisor-rich)
+    4, 4, 4, 4
   ];
+  for (let n = 4; n <= MAX_SPAWN; n++) if (isComposite(n)) SPAWN.push(n);
 
   // Two tiles combine when the smaller strictly divides the larger.
   // Equal numbers never combine (so 1 & 1 doesn't either). A 1 combines with
