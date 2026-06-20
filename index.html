@@ -229,9 +229,9 @@
     <div class="label">Difficulty</div>
     <div class="modes" id="modes">
       <button data-mode="calm">Calm</button>
+      <button data-mode="mild">Mild</button>
       <button data-mode="normal">Normal</button>
       <button data-mode="hard">Hard</button>
-      <button data-mode="chaos">Chaos</button>
     </div>
   </div>
 
@@ -283,10 +283,10 @@
 
   // Difficulty modes the player chooses; k controls how often big numbers appear.
   const MODES = {
-    calm:   { label: "Calm",   k: 1.0 },   // mostly small/simple, big numbers rare
-    normal: { label: "Normal", k: 0.75 },  // balanced (default)
-    hard:   { label: "Hard",   k: 0.5 },   // more big numbers
-    chaos:  { label: "Chaos",  k: 0 }      // pure prime-factor count, big-number flood
+    calm:   { label: "Calm",   k: 1.0 },   // easiest — board stays small/simple
+    mild:   { label: "Mild",   k: 0.9 },   // a touch more variety
+    normal: { label: "Normal", k: 0.8 },   // balanced (default)
+    hard:   { label: "Hard",   k: 0.65 }   // more big numbers — the real challenge
   };
   let currentMode = localStorage.getItem("modeDivide");
   if (!MODES[currentMode]) currentMode = "normal";
