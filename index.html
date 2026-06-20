@@ -253,7 +253,13 @@
 
   let grid, score, best, idCounter;
   let bursts = [];   // impact cells (working space) collected during a move
-  best = parseInt(localStorage.getItem("bestDivide") || "0", 10);
+
+  // High score is tracked per difficulty mode.
+  function bestKey(mode) { return "bestDivide_" + mode; }
+  function loadBest() {
+    best = parseInt(localStorage.getItem(bestKey(currentMode)) || "0", 10);
+    bestEl.textContent = best;
+  }
 
   // --- Spawn weighting -------------------------------------------------------
   // A spawned tile's value is drawn 1..MAX_SPAWN by weight. Numbers that are
@@ -342,6 +348,7 @@
     if (!data || !Array.isArray(data.grid) || data.grid.length !== SIZE) return false;
     if (MODES[data.mode]) currentMode = data.mode;
     buildWeights(MODES[currentMode].k);
+    loadBest();
     grid = data.grid.map((row) =>
       row.map((c) => (c ? { id: c.id, value: c.value } : null)));
     score = data.score || 0;
@@ -359,6 +366,7 @@
     score = 0;
     idCounter = 0;
     buildWeights(MODES[currentMode].k);
+    loadBest();
     overlay.classList.remove("show");
     addRandom();
     addRandom();
@@ -423,7 +431,7 @@
     scoreEl.textContent = score;
     if (score > best) {
       best = score;
-      localStorage.setItem("bestDivide", String(best));
+      localStorage.setItem(bestKey(currentMode), String(best));
     }
     bestEl.textContent = best;
   }
@@ -573,7 +581,15 @@
   });
   syncModeButtons();
 
-  bestEl.textContent = best;
+  // One-time migration: fold the old single high score into the Normal mode.
+  const oldBest = localStorage.getItem("bestDivide");
+  if (oldBest !== null) {
+    const normKey = bestKey("normal");
+    if (parseInt(oldBest, 10) > parseInt(localStorage.getItem(normKey) || "0", 10))
+      localStorage.setItem(normKey, oldBest);
+    localStorage.removeItem("bestDivide");
+  }
+
   // Resume a saved game if one exists; otherwise start fresh.
   if (!loadState()) newGame();
 })();
