@@ -298,12 +298,11 @@
     return MAX_SPAWN;
   }
 
-  // Two tiles combine when the smaller strictly divides the larger.
-  // Equal numbers never combine (so 1 & 1 doesn't either). A 1 combines with
-  // any larger number and annihilates it, leaving an empty cell.
+  // Two tiles combine when the smaller divides the larger. Equal numbers now
+  // divide too (a / a = 1), so a matching pair collapses into a 1. A 1 combines
+  // with any larger number and annihilates it; a pair of 1s annihilates as well.
   function combinable(x, y) {
     const a = Math.min(x, y), b = Math.max(x, y);
-    if (a === b) return false;
     return b % a === 0;
   }
   // Resulting value of combining x and y: larger / smaller, or 0 ("annihilate /
