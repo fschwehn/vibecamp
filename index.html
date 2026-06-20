@@ -15,7 +15,13 @@
     --accent: #f2b134;
     --gap: 2.5vmin;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  * {
+    box-sizing: border-box; margin: 0; padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  ::selection { background: transparent; }
   html, body {
     height: 100%;
     background: var(--bg);
@@ -319,6 +325,35 @@
     return Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
   }
 
+  // --- Persistence: keep the in-progress game across tab closes -------------
+  const STATE_KEY = "stateDivide";
+  function saveState() {
+    const cells = grid.map((row) =>
+      row.map((c) => (c ? { id: c.id, value: c.value } : null)));
+    const data = {
+      grid: cells, score: score, idCounter: idCounter,
+      mode: currentMode, over: overlay.classList.contains("show")
+    };
+    try { localStorage.setItem(STATE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  function loadState() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem(STATE_KEY)); } catch (e) { return false; }
+    if (!data || !Array.isArray(data.grid) || data.grid.length !== SIZE) return false;
+    if (MODES[data.mode]) currentMode = data.mode;
+    buildWeights(MODES[currentMode].k);
+    grid = data.grid.map((row) =>
+      row.map((c) => (c ? { id: c.id, value: c.value } : null)));
+    score = data.score || 0;
+    idCounter = data.idCounter || 0;
+    overlay.classList.remove("show");
+    render(true);
+    updateScore();
+    syncModeButtons();
+    if (data.over) endGame();
+    return true;
+  }
+
   function newGame() {
     grid = emptyGrid();
     score = 0;
@@ -329,6 +364,7 @@
     addRandom();
     render(true);
     updateScore();
+    saveState();
   }
 
   function addRandom() {
@@ -474,6 +510,7 @@
       }
       updateScore();
       if (isGameOver()) endGame();
+      saveState();
     }
   }
 
@@ -537,7 +574,8 @@
   syncModeButtons();
 
   bestEl.textContent = best;
-  newGame();
+  // Resume a saved game if one exists; otherwise start fresh.
+  if (!loadState()) newGame();
 })();
 </script>
 </body>
