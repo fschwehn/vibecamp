@@ -157,6 +157,31 @@
   }
   button:active { transform: scale(0.96); }
 
+  /* Difficulty selector */
+  .difficulty {
+    width: 100%;
+    max-width: 92vmin;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.4vmin;
+  }
+  .difficulty .label {
+    font-size: 2.6vmin;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .modes { display: flex; gap: 1.6vmin; flex-wrap: wrap; justify-content: center; }
+  .modes button {
+    background: var(--board);
+    color: var(--muted);
+    padding: 1.4vmin 3vmin;
+    font-size: 3vmin;
+  }
+  .modes button.active { background: var(--accent); color: #1b1a26; }
+
   .overlay {
     position: absolute;
     inset: 0;
@@ -194,6 +219,16 @@
     </div>
   </div>
 
+  <div class="difficulty">
+    <div class="label">Difficulty</div>
+    <div class="modes" id="modes">
+      <button data-mode="calm">Calm</button>
+      <button data-mode="normal">Normal</button>
+      <button data-mode="hard">Hard</button>
+      <button data-mode="chaos">Chaos</button>
+    </div>
+  </div>
+
   <footer>
     <p class="hint">Swipe to slide. Tiles combine when one divides the other → larger ÷ smaller.</p>
     <button id="new-game">New Game</button>
@@ -214,18 +249,48 @@
   let bursts = [];   // impact cells (working space) collected during a move
   best = parseInt(localStorage.getItem("bestDivide") || "0", 10);
 
-  // Values a freshly spawned tile can take.
-  // The board always needs small divisors to work with, so 1 (the "annihilate"
-  // tool) and the small bases 2, 3, 4 get extra weight. On top of that, every
-  // number in 1..72 can appear once, for full variety (primes included).
+  // --- Spawn weighting -------------------------------------------------------
+  // A spawned tile's value is drawn 1..MAX_SPAWN by weight. Numbers that are
+  // easy to break down (more prime factors) and small are more common; large
+  // primes are rare. The board always needs small divisors, so 1 (the
+  // "annihilate" tool) and the bases 2, 3 get a fixed boost on top.
   const MAX_SPAWN = 72;
-  const SPAWN = [
-    1, 1, 1, 1,                       // the "annihilate" tool
-    2, 2, 2, 2, 2, 2, 2, 2,           // common small bases (divisors for the rest)
-    3, 3, 3, 3, 3, 3,
-    4, 4, 4, 4
-  ];
-  for (let n = 1; n <= MAX_SPAWN; n++) SPAWN.push(n);
+
+  // Number of prime factors with multiplicity, e.g. omega(12) = omega(2*2*3) = 3.
+  function omega(n) {
+    let count = 0, m = n;
+    for (let p = 2; p * p <= m; p++) while (m % p === 0) { m /= p; count++; }
+    if (m > 1) count++;
+    return count;
+  }
+  // Playability floor so the essential small values stay common.
+  function boost(n) { return n === 1 ? 5 : n === 2 ? 5 : n === 3 ? 3 : 0; }
+  // k is the size-decay strength: higher k => stronger skew toward small numbers.
+  function weight(n, k) { return (n === 1 ? 0 : omega(n) / Math.pow(n, k)) + boost(n); }
+
+  // Difficulty modes the player chooses; k controls how often big numbers appear.
+  const MODES = {
+    calm:   { label: "Calm",   k: 1.0 },   // mostly small/simple, big numbers rare
+    normal: { label: "Normal", k: 0.75 },  // balanced (default)
+    hard:   { label: "Hard",   k: 0.5 },   // more big numbers
+    chaos:  { label: "Chaos",  k: 0 }      // pure prime-factor count, big-number flood
+  };
+  let currentMode = localStorage.getItem("modeDivide");
+  if (!MODES[currentMode]) currentMode = "normal";
+
+  // Cumulative-weight table for the active mode, rebuilt on each new game.
+  let cumWeights = [], cumTotal = 0;
+  function buildWeights(k) {
+    cumWeights = [];
+    let acc = 0;
+    for (let n = 1; n <= MAX_SPAWN; n++) { acc += weight(n, k); cumWeights.push(acc); }
+    cumTotal = acc;
+  }
+  function randomSpawnValue() {
+    const r = Math.random() * cumTotal;
+    for (let n = 1; n <= MAX_SPAWN; n++) if (r < cumWeights[n - 1]) return n;
+    return MAX_SPAWN;
+  }
 
   // Two tiles combine when the smaller strictly divides the larger.
   // Equal numbers never combine (so 1 & 1 doesn't either). A 1 combines with
@@ -258,6 +323,7 @@
     grid = emptyGrid();
     score = 0;
     idCounter = 0;
+    buildWeights(MODES[currentMode].k);
     overlay.classList.remove("show");
     addRandom();
     addRandom();
@@ -272,7 +338,7 @@
         if (!grid[r][c]) empty.push([r, c]);
     if (!empty.length) return;
     const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-    const value = SPAWN[Math.floor(Math.random() * SPAWN.length)];
+    const value = randomSpawnValue();
     grid[r][c] = { id: ++idCounter, value: value, isNew: true };
   }
 
@@ -453,6 +519,22 @@
 
   document.getElementById("new-game").addEventListener("click", newGame);
   document.getElementById("overlay-btn").addEventListener("click", newGame);
+
+  // ---- Difficulty selector ----
+  const modesEl = document.getElementById("modes");
+  function syncModeButtons() {
+    for (const btn of modesEl.children)
+      btn.classList.toggle("active", btn.dataset.mode === currentMode);
+  }
+  modesEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn || !MODES[btn.dataset.mode]) return;
+    currentMode = btn.dataset.mode;
+    localStorage.setItem("modeDivide", currentMode);
+    syncModeButtons();
+    newGame();   // choosing a difficulty starts a fresh game in that feel
+  });
+  syncModeButtons();
 
   bestEl.textContent = best;
   newGame();
