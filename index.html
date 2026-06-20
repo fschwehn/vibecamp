@@ -269,8 +269,9 @@
     if (m > 1) count++;
     return count;
   }
-  // Playability floor so the essential small values stay common.
-  function boost(n) { return n === 1 ? 5 : n === 2 ? 5 : n === 3 ? 3 : 0; }
+  // Playability floor so the essential small divisors stay common.
+  // (1 is never spawned — it's produced in-game by equal-number division.)
+  function boost(n) { return n === 2 ? 5 : n === 3 ? 3 : 0; }
   // k is the size-decay strength: higher k => stronger skew toward small numbers.
   function weight(n, k) { return (n === 1 ? 0 : omega(n) / Math.pow(n, k)) + boost(n); }
 
