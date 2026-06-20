@@ -217,20 +217,15 @@
   // Values a freshly spawned tile can take.
   // The board always needs small divisors to work with, so 1 (the "annihilate"
   // tool) and the small bases 2, 3, 4 get extra weight. On top of that, every
-  // composite number in 1..72 can appear once, for variety.
+  // number in 1..72 can appear once, for full variety (primes included).
   const MAX_SPAWN = 72;
-  function isComposite(n) {
-    if (n < 4) return false;
-    for (let d = 2; d * d <= n; d++) if (n % d === 0) return true;
-    return false;
-  }
   const SPAWN = [
     1, 1, 1, 1,                       // the "annihilate" tool
-    2, 2, 2, 2, 2, 2, 2, 2,           // common small bases (divisors for composites)
+    2, 2, 2, 2, 2, 2, 2, 2,           // common small bases (divisors for the rest)
     3, 3, 3, 3, 3, 3,
     4, 4, 4, 4
   ];
-  for (let n = 4; n <= MAX_SPAWN; n++) if (isComposite(n)) SPAWN.push(n);
+  for (let n = 1; n <= MAX_SPAWN; n++) SPAWN.push(n);
 
   // Two tiles combine when the smaller strictly divides the larger.
   // Equal numbers never combine (so 1 & 1 doesn't either). A 1 combines with
