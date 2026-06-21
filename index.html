@@ -2,597 +2,111 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#1b1a26">
-<title>Divide — vibecamp</title>
+<title>vibecamp — games</title>
 <style>
   :root {
     --bg: #1b1a26;
-    --board: #2c2a3e;
-    --cell: #3a3850;
+    --card: #2c2a3e;
     --text: #f4f3ff;
     --muted: #9a97b8;
     --accent: #f2b134;
-    --gap: 2.5vmin;
   }
-  * {
-    box-sizing: border-box; margin: 0; padding: 0;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
-    -webkit-touch-callout: none;
-  }
-  ::selection { background: transparent; }
-  html, body {
-    height: 100%;
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    min-height: 100%;
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    overscroll-behavior: none;
-    touch-action: none;
-  }
-  body {
+    padding: max(8vmin, env(safe-area-inset-top)) 6vw max(8vmin, env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 3vmin;
-    padding: max(3vmin, env(safe-area-inset-top)) 4vmin max(3vmin, env(safe-area-inset-bottom));
-    user-select: none;
+    gap: 7vmin;
   }
-  header {
-    width: 100%;
-    max-width: 92vmin;
+  header { text-align: center; }
+  h1 { font-size: 11vw; font-weight: 800; letter-spacing: -0.04em; color: var(--accent); }
+  .tagline { color: var(--muted); margin-top: 1.5vmin; font-size: 4vw; }
+
+  .games { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 4vmin; }
+  a.card {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 3vmin;
+    gap: 5vw;
+    text-decoration: none;
+    color: var(--text);
+    background: var(--card);
+    border-radius: 4vmin;
+    padding: 5vw;
+    transition: transform 0.12s ease;
   }
-  h1 {
-    font-size: 9vmin;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    color: var(--accent);
-  }
-  .scores { display: flex; gap: 2vmin; }
-  .score-box {
-    background: var(--board);
-    border-radius: 1.6vmin;
-    padding: 1.4vmin 3vmin;
-    text-align: center;
-    min-width: 20vmin;
-  }
-  .score-box .label {
-    font-size: 2.6vmin;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--muted);
-    font-weight: 700;
-  }
-  .score-box .value { font-size: 5vmin; font-weight: 800; }
-
-  .board-wrap {
-    position: relative;
-    width: 92vmin;
-    max-width: 92vmin;
+  a.card:active { transform: scale(0.98); }
+  .glyph {
+    flex: none;
+    width: 16vw; max-width: 90px;
     aspect-ratio: 1 / 1;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    border-radius: 3vmin;
+    font-size: 9vw; font-weight: 800; color: var(--accent);
   }
-  .board {
-    position: absolute;
-    inset: 0;
-    background: var(--board);
-    border-radius: 2.4vmin;
-    padding: var(--gap);
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    gap: var(--gap);
-  }
-  .grid-cell { background: var(--cell); border-radius: 1.6vmin; }
-
-  .tiles {
-    position: absolute;
-    inset: var(--gap);
-    pointer-events: none;
-  }
-  .tile {
-    position: absolute;
-    width: calc((100% - 3 * var(--gap)) / 4);
-    height: calc((100% - 3 * var(--gap)) / 4);
-    border-radius: 1.6vmin;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 7vmin;
-    transition: transform 0.12s ease-in-out;
-    will-change: transform;
-  }
-  .tile.pop { animation: pop 0.16s ease; }
-  .tile.spawn { animation: spawn 0.16s ease; }
-  @keyframes pop { 0% { transform: var(--pos) scale(1); } 50% { transform: var(--pos) scale(1.16); } 100% { transform: var(--pos) scale(1); } }
-  @keyframes spawn { 0% { transform: var(--pos) scale(0); } 100% { transform: var(--pos) scale(1); } }
-
-  /* Annihilation flash where a 1 clears its partner. */
-  .burst {
-    position: absolute;
-    width: calc((100% - 3 * var(--gap)) / 4);
-    height: calc((100% - 3 * var(--gap)) / 4);
-    border-radius: 1.6vmin;
-    pointer-events: none;
-    background: radial-gradient(circle, rgba(242,177,52,0.95) 0%, rgba(242,177,52,0.45) 35%, rgba(242,177,52,0) 70%);
-    animation: burst 0.42s ease-out forwards;
-    z-index: 4;
-  }
-  @keyframes burst {
-    0%   { transform: var(--pos) scale(0.35); opacity: 1; }
-    100% { transform: var(--pos) scale(1.9); opacity: 0; }
-  }
-  .board-wrap.shake { animation: shake 0.18s ease; }
-  @keyframes shake {
-    0%, 100% { transform: translate(0, 0); }
-    25% { transform: translate(0.8vmin, -0.4vmin); }
-    75% { transform: translate(-0.8vmin, 0.4vmin); }
+  .meta .name { font-size: 5.5vw; font-weight: 800; }
+  .meta .desc { color: var(--muted); font-size: 3.6vw; margin-top: 1vmin; line-height: 1.35; }
+  @media (min-width: 560px) {
+    h1 { font-size: 60px; }
+    .tagline, .meta .desc { font-size: 18px; }
+    .meta .name { font-size: 28px; }
+    .glyph { font-size: 44px; }
   }
 
-  .tile { background: #6c5ce7; color: #fff; }
-  /* Inert "1" tiles: muted, locked-looking. Only a pair of 1s can clear. */
-  .tile.one {
-    background: #3a3850;
-    color: var(--muted);
-    box-shadow: inset 0 0 0 0.5vmin #4a4866;
-  }
-
-  footer {
-    width: 100%;
-    max-width: 92vmin;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 3vmin;
-  }
-  p.hint { color: var(--muted); font-size: 3vmin; }
-  button {
-    background: var(--accent);
-    color: #1b1a26;
-    border: none;
-    border-radius: 1.6vmin;
-    padding: 2vmin 4vmin;
-    font-size: 3.4vmin;
-    font-weight: 800;
-    cursor: pointer;
-  }
-  button:active { transform: scale(0.96); }
-
-  /* Difficulty selector */
-  .difficulty {
-    width: 100%;
-    max-width: 92vmin;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.4vmin;
-  }
-  .difficulty .label {
-    font-size: 2.6vmin;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--muted);
-    font-weight: 700;
-  }
-  .modes { display: flex; gap: 1.6vmin; flex-wrap: wrap; justify-content: center; }
-  .modes button {
-    background: var(--board);
-    color: var(--muted);
-    padding: 1.4vmin 3vmin;
-    font-size: 3vmin;
-  }
-  .modes button.active { background: var(--accent); color: #1b1a26; }
-
-  .overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(27,26,38,0.86);
-    border-radius: 2.4vmin;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3vmin;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-    z-index: 5;
-  }
-  .overlay.show { opacity: 1; pointer-events: auto; }
-  .overlay .msg { font-size: 9vmin; font-weight: 800; }
+  footer { color: var(--muted); font-size: 3.2vw; text-align: center; }
+  @media (min-width: 560px) { footer { font-size: 14px; } }
 </style>
 </head>
 <body>
   <header>
-    <h1>÷</h1>
-    <div class="scores">
-      <div class="score-box"><div class="label">Score</div><div class="value" id="score">0</div></div>
-      <div class="score-box"><div class="label">Best</div><div class="value" id="best">0</div></div>
-    </div>
+    <h1>vibecamp</h1>
+    <div class="tagline">a tiny pocket arcade</div>
   </header>
 
-  <div class="board-wrap">
-    <div class="board" id="board"></div>
-    <div class="tiles" id="tiles"></div>
-    <div class="overlay" id="overlay">
-      <div class="msg" id="overlay-msg">Game Over</div>
-      <button id="overlay-btn">Try again</button>
-    </div>
-  </div>
+  <div class="games" id="games"></div>
 
-  <div class="difficulty">
-    <div class="label">Difficulty</div>
-    <div class="modes" id="modes">
-      <button data-mode="calm">Calm</button>
-      <button data-mode="mild">Mild</button>
-      <button data-mode="normal">Normal</button>
-      <button data-mode="hard">Hard</button>
-    </div>
-  </div>
-
-  <footer>
-    <p class="hint">Swipe to slide. Tiles combine when one divides the other → larger ÷ smaller.</p>
-    <button id="new-game">New Game</button>
-  </footer>
+  <footer>Built from a phone. More games coming.</footer>
 
 <script>
-(function () {
-  "use strict";
-  const SIZE = 4;
-  const boardEl = document.getElementById("board");
-  const tilesEl = document.getElementById("tiles");
-  const scoreEl = document.getElementById("score");
-  const bestEl = document.getElementById("best");
-  const overlay = document.getElementById("overlay");
-  const overlayMsg = document.getElementById("overlay-msg");
-
-  let grid, score, best, idCounter;
-  let bursts = [];   // impact cells (working space) collected during a move
-
-  // High score is tracked per difficulty mode.
-  function bestKey(mode) { return "bestDivide_" + mode; }
-  function loadBest() {
-    best = parseInt(localStorage.getItem(bestKey(currentMode)) || "0", 10);
-    bestEl.textContent = best;
-  }
-
-  // --- Spawn weighting -------------------------------------------------------
-  // A spawned tile's value is drawn 1..MAX_SPAWN by weight. Numbers that are
-  // easy to break down (more prime factors) and small are more common; large
-  // primes are rare. The board always needs small divisors, so 1 (the
-  // "annihilate" tool) and the bases 2, 3 get a fixed boost on top.
-  const MAX_SPAWN = 72;
-
-  // Number of prime factors with multiplicity, e.g. omega(12) = omega(2*2*3) = 3.
-  function omega(n) {
-    let count = 0, m = n;
-    for (let p = 2; p * p <= m; p++) while (m % p === 0) { m /= p; count++; }
-    if (m > 1) count++;
-    return count;
-  }
-  // Playability floor so the essential small divisors stay common.
-  // (1 is never spawned — it's produced in-game by equal-number division.)
-  function boost(n) { return n === 2 ? 5 : n === 3 ? 3 : 0; }
-  // k is the size-decay strength: higher k => stronger skew toward small numbers.
-  function weight(n, k) { return (n === 1 ? 0 : omega(n) / Math.pow(n, k)) + boost(n); }
-
-  // Difficulty modes the player chooses; k controls how often big numbers appear.
-  const MODES = {
-    calm:   { label: "Calm",   k: 1.0 },   // easiest — board stays small/simple
-    mild:   { label: "Mild",   k: 0.9 },   // a touch more variety
-    normal: { label: "Normal", k: 0.8 },   // balanced (default)
-    hard:   { label: "Hard",   k: 0.65 }   // more big numbers — the real challenge
-  };
-  let currentMode = localStorage.getItem("modeDivide");
-  if (!MODES[currentMode]) currentMode = "normal";
-
-  // Cumulative-weight table for the active mode, rebuilt on each new game.
-  let cumWeights = [], cumTotal = 0;
-  function buildWeights(k) {
-    cumWeights = [];
-    let acc = 0;
-    for (let n = 1; n <= MAX_SPAWN; n++) { acc += weight(n, k); cumWeights.push(acc); }
-    cumTotal = acc;
-  }
-  function randomSpawnValue() {
-    const r = Math.random() * cumTotal;
-    for (let n = 1; n <= MAX_SPAWN; n++) if (r < cumWeights[n - 1]) return n;
-    return MAX_SPAWN;
-  }
-
-  // Two tiles combine when the smaller divides the larger. Equal numbers now
-  // divide too (a / a = 1), so a matching pair collapses into a 1. A 1 combines
-  // with any larger number and annihilates it; a pair of 1s annihilates as well.
-  function combinable(x, y) {
-    const a = Math.min(x, y), b = Math.max(x, y);
-    return b % a === 0;
-  }
-  // Resulting value of combining x and y: larger / smaller, or 0 ("annihilate /
-  // clear the cell") when the smaller is a 1.
-  function combineResult(x, y) {
-    const a = Math.min(x, y), b = Math.max(x, y);
-    if (a === 1) return 0;
-    return b / a;
-  }
-
-  // Build static background cells
-  for (let i = 0; i < SIZE * SIZE; i++) {
-    const c = document.createElement("div");
-    c.className = "grid-cell";
-    boardEl.appendChild(c);
-  }
-
-  function emptyGrid() {
-    return Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
-  }
-
-  // --- Persistence: keep the in-progress game across tab closes -------------
-  const STATE_KEY = "stateDivide";
-  function saveState() {
-    const cells = grid.map((row) =>
-      row.map((c) => (c ? { id: c.id, value: c.value } : null)));
-    const data = {
-      grid: cells, score: score, idCounter: idCounter,
-      mode: currentMode, over: overlay.classList.contains("show")
-    };
-    try { localStorage.setItem(STATE_KEY, JSON.stringify(data)); } catch (e) {}
-  }
-  function loadState() {
-    let data;
-    try { data = JSON.parse(localStorage.getItem(STATE_KEY)); } catch (e) { return false; }
-    if (!data || !Array.isArray(data.grid) || data.grid.length !== SIZE) return false;
-    if (MODES[data.mode]) currentMode = data.mode;
-    buildWeights(MODES[currentMode].k);
-    loadBest();
-    grid = data.grid.map((row) =>
-      row.map((c) => (c ? { id: c.id, value: c.value } : null)));
-    score = data.score || 0;
-    idCounter = data.idCounter || 0;
-    overlay.classList.remove("show");
-    render(true);
-    updateScore();
-    syncModeButtons();
-    if (data.over) endGame();
-    return true;
-  }
-
-  function newGame() {
-    grid = emptyGrid();
-    score = 0;
-    idCounter = 0;
-    buildWeights(MODES[currentMode].k);
-    loadBest();
-    overlay.classList.remove("show");
-    addRandom();
-    addRandom();
-    render(true);
-    updateScore();
-    saveState();
-  }
-
-  function addRandom() {
-    const empty = [];
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++)
-        if (!grid[r][c]) empty.push([r, c]);
-    if (!empty.length) return;
-    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-    const value = randomSpawnValue();
-    grid[r][c] = { id: ++idCounter, value: value, isNew: true };
-  }
-
-  // Consistent color per value via hue rotation; bigger numbers use a smaller font.
-  function styleTile(el, v) {
-    if (v === 1) {
-      el.classList.add("one");
-    } else {
-      const hue = (v * 47) % 360;
-      el.style.background = "hsl(" + hue + ", 62%, 56%)";
-      el.style.color = "#fff";
+  // Add a game by dropping its file in the repo and adding one entry here.
+  const GAMES = [
+    {
+      glyph: "÷",
+      name: "Divide",
+      desc: "Slide tiles to combine them: a smaller number divides a larger one. Equal pairs collapse to a 1, and 1s annihilate anything they touch.",
+      url: "divide.html"
     }
-    const digits = String(v).length;
-    el.style.fontSize = digits >= 4 ? "4.2vmin" : digits === 3 ? "5.4vmin" : "7vmin";
+  ];
+
+  const list = document.getElementById("games");
+  for (const g of GAMES) {
+    const a = document.createElement("a");
+    a.className = "card";
+    a.href = g.url;
+    const glyph = document.createElement("div");
+    glyph.className = "glyph";
+    glyph.textContent = g.glyph;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = g.name;
+    const desc = document.createElement("div");
+    desc.className = "desc";
+    desc.textContent = g.desc;
+    meta.appendChild(name);
+    meta.appendChild(desc);
+    a.appendChild(glyph);
+    a.appendChild(meta);
+    list.appendChild(a);
   }
-
-  function posTransform(r, c) {
-    // gap is the same var used in CSS; tiles container already offset by gap.
-    return "translate(calc(" + c + " * (100% + var(--gap))), calc(" + r + " * (100% + var(--gap))))";
-  }
-
-  function render(initial) {
-    tilesEl.innerHTML = "";
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        const cell = grid[r][c];
-        if (!cell) continue;
-        const el = document.createElement("div");
-        const pos = posTransform(r, c);
-        el.className = "tile";
-        styleTile(el, cell.value);
-        el.style.setProperty("--pos", pos);
-        el.style.transform = pos;
-        el.textContent = cell.value;
-        if (cell.merged) el.classList.add("pop");
-        if (cell.isNew && !initial) el.classList.add("spawn");
-        if (cell.isNew && initial) el.classList.add("spawn");
-        tilesEl.appendChild(el);
-        cell.isNew = false;
-        cell.merged = false;
-      }
-    }
-  }
-
-  function updateScore() {
-    scoreEl.textContent = score;
-    if (score > best) {
-      best = score;
-      localStorage.setItem(bestKey(currentMode), String(best));
-    }
-    bestEl.textContent = best;
-  }
-
-  // Rotate grid clockwise so we can always merge "left"
-  function rotate(g) {
-    const n = emptyGrid();
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++)
-        n[c][SIZE - 1 - r] = g[r][c];
-    return n;
-  }
-
-  // Same clockwise rotation, but for a single (r,c) point; mirrors rotate().
-  function rotatePoint(r, c, times) {
-    for (let i = 0; i < times; i++) { const nr = c, nc = SIZE - 1 - r; r = nr; c = nc; }
-    return [r, c];
-  }
-
-  // Transient flash at a board cell where an annihilation happened.
-  function spawnBurst(r, c) {
-    const el = document.createElement("div");
-    el.className = "burst";
-    const pos = posTransform(r, c);
-    el.style.setProperty("--pos", pos);
-    el.style.transform = pos;
-    el.addEventListener("animationend", () => el.remove());
-    tilesEl.appendChild(el);
-  }
-
-  function moveLeft(g) {
-    let moved = false;
-    for (let r = 0; r < SIZE; r++) {
-      const row = g[r].filter(Boolean);
-      for (let i = 0; i < row.length - 1; i++) {
-        const x = row[i].value, y = row[i + 1].value;
-        if (!combinable(x, y)) continue;
-        const res = combineResult(x, y);
-        // Score how much the numbers shrank (annihilation removes both).
-        score += x + y - res;
-        if (res === 0) {
-          // 1 annihilates its larger partner: clear both cells.
-          // Record the impact cell (working space) so move() can flash it.
-          bursts.push([r, i]);
-          row.splice(i, 2);
-        } else {
-          row[i] = { id: row[i].id, value: res, merged: true };
-          row.splice(i + 1, 1);
-        }
-      }
-      while (row.length < SIZE) row.push(null);
-      for (let c = 0; c < SIZE; c++) {
-        if ((g[r][c] && g[r][c].id) !== (row[c] && row[c].id) ||
-            (g[r][c] && g[r][c].value) !== (row[c] && row[c].value)) moved = true;
-        g[r][c] = row[c];
-      }
-    }
-    return moved;
-  }
-
-  // dir: 0=left,1=up,2=right,3=down
-  function move(dir) {
-    if (overlay.classList.contains("show")) return;
-    let g = grid;
-    bursts = [];
-    // Rotate so the target direction becomes "left", slide, then rotate back.
-    // Pre + post rotations sum to a full turn so the grid orientation is restored.
-    for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
-    const moved = moveLeft(g);
-    for (let i = 0; i < dir; i++) g = rotate(g);
-    grid = g;
-    if (moved) {
-      addRandom();
-      render(false);
-      // Burst positions are in working space; rotate them back like the grid.
-      for (const [br, bc] of bursts) {
-        const [r, c] = rotatePoint(br, bc, dir);
-        spawnBurst(r, c);
-      }
-      if (bursts.length) {
-        wrap.classList.remove("shake");
-        void wrap.offsetWidth;        // restart the animation
-        wrap.classList.add("shake");
-      }
-      updateScore();
-      if (isGameOver()) endGame();
-      saveState();
-    }
-  }
-
-  function isGameOver() {
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++) {
-        if (!grid[r][c]) return false;
-        if (c < SIZE - 1 && combinable(grid[r][c].value, grid[r][c + 1].value)) return false;
-        if (r < SIZE - 1 && combinable(grid[r][c].value, grid[r + 1][c].value)) return false;
-      }
-    return true;
-  }
-
-  function endGame() {
-    overlayMsg.textContent = "Game Over";
-    overlay.classList.add("show");
-  }
-
-  // ---- Input: keyboard ----
-  window.addEventListener("keydown", (e) => {
-    const map = { ArrowLeft: 0, ArrowUp: 1, ArrowRight: 2, ArrowDown: 3,
-                  a: 0, w: 1, d: 2, s: 3 };
-    if (e.key in map) { e.preventDefault(); move(map[e.key]); }
-  });
-
-  // ---- Input: touch swipe ----
-  let startX = 0, startY = 0, tracking = false;
-  const THRESHOLD = 24;
-  const wrap = document.querySelector(".board-wrap");
-  wrap.addEventListener("touchstart", (e) => {
-    const t = e.changedTouches[0];
-    startX = t.clientX; startY = t.clientY; tracking = true;
-  }, { passive: true });
-  wrap.addEventListener("touchend", (e) => {
-    if (!tracking) return;
-    tracking = false;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - startX, dy = t.clientY - startY;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < THRESHOLD) return;
-    if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 2 : 0);
-    else move(dy > 0 ? 3 : 1);
-  }, { passive: true });
-
-  document.getElementById("new-game").addEventListener("click", newGame);
-  document.getElementById("overlay-btn").addEventListener("click", newGame);
-
-  // ---- Difficulty selector ----
-  const modesEl = document.getElementById("modes");
-  function syncModeButtons() {
-    for (const btn of modesEl.children)
-      btn.classList.toggle("active", btn.dataset.mode === currentMode);
-  }
-  modesEl.addEventListener("click", (e) => {
-    const btn = e.target.closest("button");
-    if (!btn || !MODES[btn.dataset.mode]) return;
-    currentMode = btn.dataset.mode;
-    localStorage.setItem("modeDivide", currentMode);
-    syncModeButtons();
-    newGame();   // choosing a difficulty starts a fresh game in that feel
-  });
-  syncModeButtons();
-
-  // One-time migration: fold the old single high score into the Normal mode.
-  const oldBest = localStorage.getItem("bestDivide");
-  if (oldBest !== null) {
-    const normKey = bestKey("normal");
-    if (parseInt(oldBest, 10) > parseInt(localStorage.getItem(normKey) || "0", 10))
-      localStorage.setItem(normKey, oldBest);
-    localStorage.removeItem("bestDivide");
-  }
-
-  // Resume a saved game if one exists; otherwise start fresh.
-  if (!loadState()) newGame();
-})();
 </script>
 </body>
 </html>

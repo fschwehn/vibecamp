@@ -1,23 +1,29 @@
 # vibecamp
 
-A mobile-first **2048** game in a single self-contained `index.html` — no build step, no dependencies. Built to be developed entirely from a phone via GitHub Pages.
+A tiny **pocket arcade** — a set of self-contained, mobile-first games served from
+GitHub Pages. No build step, no dependencies: each game is a single HTML file.
+
+## Structure
+
+- `index.html` — the hub/home page that lists the games as tappable cards.
+- `divide.html` — **Divide**, a 2048-style game built around division.
+- Add a new game by dropping a self-contained `<name>.html` in the repo and
+  adding one entry to the `GAMES` array in `index.html`.
 
 ## Play it
 
-Once GitHub Pages is enabled, the game is live at:
+Once GitHub Pages is enabled, the arcade is live at:
 `https://<your-username>.github.io/vibecamp/`
 
-## How to play
+## Divide — how to play
 
 - **Swipe** (or arrow keys / WASD) to slide the tiles.
-- Matching tiles merge and add up. Reach **2048** to win.
-- Score and best score are saved on your device.
+- Two tiles combine when the smaller divides the larger → result is `larger ÷ smaller`.
+- Equal tiles divide to `1`; a `1` annihilates any tile it merges with.
+- Pick a **difficulty** (Calm / Mild / Normal / Hard) — it changes the spawn mix.
+- Score, best score (per difficulty), and your in-progress game are saved on your device.
 
-## Enabling GitHub Pages (one-time, from your phone)
+## Enabling GitHub Pages (one-time)
 
-1. Merge this branch into `main`.
-2. Repo **Settings → Pages**.
-3. Under **Build and deployment → Source**, choose **Deploy from a branch**.
-4. Select branch **`main`** and folder **`/ (root)`**, then **Save**.
-
-After a minute the page goes live, and every future push to `main` updates it automatically.
+Repo **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
+branch **`main`**, folder **`/ (root)`**. Every push to `main` then updates the site.
