@@ -8,7 +8,8 @@ GitHub Pages. No build step, no dependencies: each game is a single HTML file.
 - `index.html` — the hub/home page that lists the games as tappable cards.
 - `divide.html` — **Divide**, a 2048-style game built around division.
 - `equate.html` — **Equate**, a sliding game with numbers *and* operators
-  (`+ − × ÷`); line up number·operator·number to evaluate it, build a 100 tile to win.
+  (`+ − × ÷`); slide a number into an operator to arm it (`5+`), then into another
+  number to run it. Build a 100 tile to win.
 - Add a new game by dropping a self-contained `<name>.html` in the repo and
   adding one entry to the `GAMES` array in `index.html`.
 

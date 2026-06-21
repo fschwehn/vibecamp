@@ -120,6 +120,9 @@
     box-shadow: inset 0 0 0 0.5vmin #3a3850;
     font-size: 8.5vmin;
   }
+  /* Partial ("armed") expression tiles, e.g. 5+ — number-hued with a ring. */
+  .tile.partial { box-shadow: inset 0 0 0 0.6vmin var(--accent); }
+  .tile .pop-op { color: #1b1a26; margin-left: 0.3vmin; font-weight: 800; }
   .tile.pop { animation: pop 0.16s ease; }
   .tile.spawn { animation: spawn 0.16s ease; }
   @keyframes pop { 0% { transform: var(--pos) scale(1); } 50% { transform: var(--pos) scale(1.18); } 100% { transform: var(--pos) scale(1); } }
@@ -179,7 +182,7 @@
   </div>
 
   <footer>
-    <p class="hint">Swipe to slide. A number · operator · number in a row evaluates.</p>
+    <p class="hint">Swipe to slide. Number + operator arms it (5+); then a number runs it.</p>
     <button id="new-game">New Game</button>
   </footer>
 
@@ -245,7 +248,10 @@
   const STATE_KEY = "stateEquate";
   function serializeTile(t) {
     if (!t) return null;
-    return t.kind === "op" ? { id: t.id, kind: "op", op: t.op } : { id: t.id, kind: "num", value: t.value };
+    const o = { id: t.id, kind: t.kind };
+    if (t.value !== undefined) o.value = t.value;
+    if (t.op !== undefined) o.op = t.op;
+    return o;
   }
   function saveState() {
     const data = {
@@ -302,10 +308,17 @@
     if (t.kind === "op") {
       el.classList.add("op");
       el.textContent = SYMBOL[t.op];
+      return;
+    }
+    const hue = (t.value * 47) % 360;
+    el.style.background = "hsl(" + hue + ", 62%, 56%)";
+    el.style.color = "#fff";
+    if (t.kind === "partial") {
+      el.classList.add("partial");
+      el.innerHTML = t.value + '<span class="pop-op">' + SYMBOL[t.op] + "</span>";
+      const len = String(t.value).length + 1;
+      el.style.fontSize = len >= 4 ? "4vmin" : len === 3 ? "5vmin" : "6vmin";
     } else {
-      const hue = (t.value * 47) % 360;
-      el.style.background = "hsl(" + hue + ", 62%, 56%)";
-      el.style.color = "#fff";
       el.textContent = t.value;
       const digits = String(t.value).length;
       el.style.fontSize = digits >= 4 ? "4.2vmin" : digits === 3 ? "5.4vmin" : "7vmin";
@@ -346,29 +359,49 @@
     return n;
   }
 
-  // Pure: slide every line toward index 0 and collapse the first valid trio.
-  // dir: 0=left,1=up,2=right,3=down. Returns { grid, moved, gained }.
+  // Two adjacent tiles combine in two steps:
+  //   number + operator  -> a "partial" (armed) tile, e.g. 5+
+  //   partial + number   -> execute the operation, producing a number
+  // Operands are commutative, so order doesn't matter. Returns null = no merge.
+  function mergePair(x, y) {
+    if (x.kind === "num" && y.kind === "op") return { id: x.id, kind: "partial", value: x.value, op: y.op };
+    if (x.kind === "op" && y.kind === "num") return { id: y.id, kind: "partial", value: y.value, op: x.op };
+    if (x.kind === "partial" && y.kind === "num") return execPair(x, y.value);
+    if (x.kind === "num" && y.kind === "partial") return execPair(y, x.value);
+    return null;
+  }
+  function execPair(p, b) {
+    if (!canCollapse(p.value, p.op, b)) return null;   // e.g. ÷ that isn't exact
+    return { id: p.id, kind: "num", value: evalOp(p.value, p.op, b) };
+  }
+
+  // Pure: slide every line toward index 0, merging adjacent pairs greedily
+  // (each tile merges at most once per move). dir: 0=left,1=up,2=right,3=down.
   function computeMove(srcGrid, dir) {
     let g = cloneGrid(srcGrid);
     for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
     let moved = false, gained = 0;
     for (let r = 0; r < SIZE; r++) {
       const orig = g[r];
-      const row = orig.filter(Boolean);
-      for (let i = 0; i + 2 < row.length; i++) {
-        const a = row[i], o = row[i + 1], b = row[i + 2];
-        if (a.kind === "num" && o.kind === "op" && b.kind === "num" && canCollapse(a.value, o.op, b.value)) {
-          const res = evalOp(a.value, o.op, b.value);
-          gained += res;
-          row.splice(i, 3, { id: a.id, kind: "num", value: res, merged: true });
-          break;   // at most one collapse per line per move
+      const packed = orig.filter(Boolean);
+      const out = [];
+      for (let i = 0; i < packed.length; ) {
+        const merged = i + 1 < packed.length ? mergePair(packed[i], packed[i + 1]) : null;
+        if (merged) {
+          merged.merged = true;
+          if (merged.kind === "num") gained += merged.value;   // an executed result
+          out.push(merged);
+          i += 2;
+        } else {
+          out.push(packed[i]);
+          i += 1;
         }
       }
-      while (row.length < SIZE) row.push(null);
+      while (out.length < SIZE) out.push(null);
       const newRow = [];
       for (let c = 0; c < SIZE; c++) {
-        if (!sameTile(orig[c], row[c])) moved = true;
-        newRow[c] = row[c];
+        if (!sameTile(orig[c], out[c])) moved = true;
+        newRow[c] = out[c];
       }
       g[r] = newRow;
     }
