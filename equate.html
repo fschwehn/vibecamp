@@ -368,7 +368,8 @@
     if (x.kind === "op" && y.kind === "num") return { id: y.id, kind: "partial", value: y.value, op: x.op };
     if (x.kind === "partial" && y.kind === "num") return execPair(x, y.value);
     if (x.kind === "num" && y.kind === "partial") return execPair(y, x.value);
-    if (x.kind === "op" && y.kind === "op") return { id: x.id, kind: "num", value: pick(NUMS) };
+    if (x.kind === "partial" && y.kind === "op") return { id: x.id, kind: "partial", value: x.value, op: y.op };
+    if (x.kind === "op" && y.kind === "partial") return { id: y.id, kind: "partial", value: y.value, op: x.op };
     return null;
   }
   function execPair(p, b) {
@@ -390,8 +391,7 @@
         const merged = i + 1 < packed.length ? mergePair(packed[i], packed[i + 1]) : null;
         if (merged) {
           merged.merged = true;
-          // Score only real executions (a partial firing), not op+op conversions.
-          if (packed[i].kind === "partial" || packed[i + 1].kind === "partial") gained += merged.value;
+          if (merged.kind === "num") gained += merged.value;   // only executions yield a number
           out.push(merged);
           i += 2;
         } else {
