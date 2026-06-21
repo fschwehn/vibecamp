@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b1a26">
+<title>Equate — vibecamp</title>
+<style>
+  :root {
+    --bg: #1b1a26;
+    --board: #2c2a3e;
+    --cell: #3a3850;
+    --text: #f4f3ff;
+    --muted: #9a97b8;
+    --accent: #f2b134;
+    --gap: 2.5vmin;
+  }
+  * {
+    box-sizing: border-box; margin: 0; padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  ::selection { background: transparent; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2.6vmin;
+    padding: max(3vmin, env(safe-area-inset-top)) 4vmin max(3vmin, env(safe-area-inset-bottom));
+  }
+  .home-link {
+    position: fixed;
+    top: max(2vmin, env(safe-area-inset-top));
+    left: max(3vmin, env(safe-area-inset-left));
+    z-index: 10;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 5vmin; font-weight: 800; line-height: 1;
+    padding: 1vmin 2vmin;
+  }
+  .home-link:active { color: var(--accent); }
+
+  header {
+    width: 100%;
+    max-width: 92vmin;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3vmin;
+  }
+  h1 { font-size: 8vmin; font-weight: 800; letter-spacing: -0.03em; color: var(--accent); }
+  .scores { display: flex; gap: 2vmin; }
+  .score-box {
+    background: var(--board);
+    border-radius: 1.6vmin;
+    padding: 1.4vmin 2.6vmin;
+    text-align: center;
+    min-width: 18vmin;
+  }
+  .score-box .label {
+    font-size: 2.4vmin;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .score-box .value { font-size: 4.6vmin; font-weight: 800; }
+
+  .goal {
+    width: 100%; max-width: 92vmin;
+    text-align: center;
+    color: var(--muted);
+    font-size: 3vmin;
+  }
+  .goal b { color: var(--accent); }
+
+  .board-wrap {
+    position: relative;
+    width: 92vmin; max-width: 92vmin;
+    aspect-ratio: 1 / 1;
+  }
+  .board {
+    position: absolute; inset: 0;
+    background: var(--board);
+    border-radius: 2.4vmin;
+    padding: var(--gap);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: var(--gap);
+  }
+  .grid-cell { background: var(--cell); border-radius: 1.6vmin; }
+
+  .tiles { position: absolute; inset: var(--gap); pointer-events: none; }
+  .tile {
+    position: absolute;
+    width: calc((100% - 3 * var(--gap)) / 4);
+    height: calc((100% - 3 * var(--gap)) / 4);
+    border-radius: 1.6vmin;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 7vmin;
+    background: #6c5ce7; color: #fff;
+    transition: transform 0.12s ease-in-out;
+    will-change: transform;
+  }
+  /* Operator tiles look distinct from numbers. */
+  .tile.op {
+    background: #201f2e;
+    color: var(--accent);
+    box-shadow: inset 0 0 0 0.5vmin #3a3850;
+    font-size: 8.5vmin;
+  }
+  .tile.pop { animation: pop 0.16s ease; }
+  .tile.spawn { animation: spawn 0.16s ease; }
+  @keyframes pop { 0% { transform: var(--pos) scale(1); } 50% { transform: var(--pos) scale(1.18); } 100% { transform: var(--pos) scale(1); } }
+  @keyframes spawn { 0% { transform: var(--pos) scale(0); } 100% { transform: var(--pos) scale(1); } }
+
+  footer {
+    width: 100%; max-width: 92vmin;
+    display: flex; align-items: center; justify-content: space-between; gap: 3vmin;
+  }
+  p.hint { color: var(--muted); font-size: 2.8vmin; }
+  button {
+    background: var(--accent); color: #1b1a26;
+    border: none; border-radius: 1.6vmin;
+    padding: 2vmin 4vmin;
+    font-size: 3.4vmin; font-weight: 800; cursor: pointer;
+  }
+  button:active { transform: scale(0.96); }
+
+  .overlay {
+    position: absolute; inset: 0;
+    background: rgba(27,26,38,0.88);
+    border-radius: 2.4vmin;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3vmin;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 5; text-align: center; padding: 4vmin;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .overlay .msg { font-size: 7vmin; font-weight: 800; }
+  .overlay.win .msg { color: var(--accent); }
+  .overlay-buttons { display: flex; gap: 2.4vmin; flex-wrap: wrap; justify-content: center; }
+</style>
+</head>
+<body>
+  <a class="home-link" href="./" aria-label="All games">‹</a>
+  <header>
+    <h1>=</h1>
+    <div class="scores">
+      <div class="score-box"><div class="label">Score</div><div class="value" id="score">0</div></div>
+      <div class="score-box"><div class="label">Best</div><div class="value" id="best">0</div></div>
+    </div>
+  </header>
+
+  <div class="goal">Goal: build a <b id="target">100</b> tile</div>
+
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="overlay" id="overlay">
+      <div class="msg" id="overlay-msg"></div>
+      <div class="overlay-buttons">
+        <button id="keep-btn">Keep going</button>
+        <button id="restart-btn">New game</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p class="hint">Swipe to slide. A number · operator · number in a row evaluates.</p>
+    <button id="new-game">New Game</button>
+  </footer>
+
+<script>
+(function () {
+  "use strict";
+  const SIZE = 4;
+  const TARGET = 100;
+
+  const boardEl = document.getElementById("board");
+  const tilesEl = document.getElementById("tiles");
+  const scoreEl = document.getElementById("score");
+  const bestEl = document.getElementById("best");
+  const overlay = document.getElementById("overlay");
+  const overlayMsg = document.getElementById("overlay-msg");
+  const keepBtn = document.getElementById("keep-btn");
+  document.getElementById("target").textContent = TARGET;
+
+  let grid, score, best, idCounter, won;
+  best = parseInt(localStorage.getItem("bestEquate") || "0", 10);
+
+  // --- Spawning --------------------------------------------------------------
+  const OP_CHANCE = 0.4;
+  const NUMS = [1, 1, 2, 2, 2, 3, 3, 4, 5];
+  const OPS  = ["+", "+", "+", "-", "-", "*", "*", "/", "/"];
+  const SYMBOL = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function randomTile() {
+    if (Math.random() < OP_CHANCE) return { id: ++idCounter, kind: "op", op: pick(OPS), isNew: true };
+    return { id: ++idCounter, kind: "num", value: pick(NUMS), isNew: true };
+  }
+
+  // --- Operator rules (commutative on the two operands) ----------------------
+  function canCollapse(a, op, b) {
+    if (op === "/") { const lo = Math.min(a, b), hi = Math.max(a, b); return lo !== 0 && hi % lo === 0; }
+    return true;
+  }
+  function evalOp(a, op, b) {
+    switch (op) {
+      case "+": return a + b;
+      case "-": return Math.abs(a - b);
+      case "*": return a * b;
+      case "/": return Math.max(a, b) / Math.min(a, b);
+    }
+  }
+
+  // Build static background cells
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    const c = document.createElement("div");
+    c.className = "grid-cell";
+    boardEl.appendChild(c);
+  }
+
+  function emptyGrid() { return Array.from({ length: SIZE }, () => Array(SIZE).fill(null)); }
+  function cloneGrid(g) { return g.map((row) => row.slice()); }
+  function sameTile(a, b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    return a.id === b.id && a.kind === b.kind && a.value === b.value && a.op === b.op;
+  }
+
+  // --- Persistence -----------------------------------------------------------
+  const STATE_KEY = "stateEquate";
+  function serializeTile(t) {
+    if (!t) return null;
+    return t.kind === "op" ? { id: t.id, kind: "op", op: t.op } : { id: t.id, kind: "num", value: t.value };
+  }
+  function saveState() {
+    const data = {
+      grid: grid.map((row) => row.map(serializeTile)),
+      score: score, idCounter: idCounter, won: won,
+      over: overlay.classList.contains("show") && !overlay.classList.contains("win")
+    };
+    try { localStorage.setItem(STATE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  function loadState() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem(STATE_KEY)); } catch (e) { return false; }
+    if (!data || !Array.isArray(data.grid) || data.grid.length !== SIZE) return false;
+    grid = data.grid.map((row) => row.map((t) => (t ? Object.assign({}, t) : null)));
+    score = data.score || 0;
+    idCounter = data.idCounter || 0;
+    won = !!data.won;
+    overlay.classList.remove("show", "win");
+    render(true);
+    updateScore();
+    if (data.over) showOver();
+    return true;
+  }
+
+  function newGame() {
+    grid = emptyGrid();
+    score = 0;
+    idCounter = 0;
+    won = false;
+    overlay.classList.remove("show", "win");
+    addRandom();
+    addRandom();
+    addRandom();
+    render(true);
+    updateScore();
+    saveState();
+  }
+
+  function addRandom() {
+    const empty = [];
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        if (!grid[r][c]) empty.push([r, c]);
+    if (!empty.length) return;
+    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+    grid[r][c] = randomTile();
+  }
+
+  // --- Rendering -------------------------------------------------------------
+  function posTransform(r, c) {
+    return "translate(calc(" + c + " * (100% + var(--gap))), calc(" + r + " * (100% + var(--gap))))";
+  }
+  function styleTile(el, t) {
+    if (t.kind === "op") {
+      el.classList.add("op");
+      el.textContent = SYMBOL[t.op];
+    } else {
+      const hue = (t.value * 47) % 360;
+      el.style.background = "hsl(" + hue + ", 62%, 56%)";
+      el.style.color = "#fff";
+      el.textContent = t.value;
+      const digits = String(t.value).length;
+      el.style.fontSize = digits >= 4 ? "4.2vmin" : digits === 3 ? "5.4vmin" : "7vmin";
+    }
+  }
+  function render(initial) {
+    tilesEl.innerHTML = "";
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const t = grid[r][c];
+        if (!t) continue;
+        const el = document.createElement("div");
+        const pos = posTransform(r, c);
+        el.className = "tile";
+        styleTile(el, t);
+        el.style.setProperty("--pos", pos);
+        el.style.transform = pos;
+        if (t.merged) el.classList.add("pop");
+        if (t.isNew) el.classList.add("spawn");
+        tilesEl.appendChild(el);
+        t.isNew = false;
+        t.merged = false;
+      }
+    }
+  }
+  function updateScore() {
+    scoreEl.textContent = score;
+    if (score > best) { best = score; localStorage.setItem("bestEquate", String(best)); }
+    bestEl.textContent = best;
+  }
+
+  // --- Move logic ------------------------------------------------------------
+  function rotate(g) {
+    const n = emptyGrid();
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        n[c][SIZE - 1 - r] = g[r][c];
+    return n;
+  }
+
+  // Pure: slide every line toward index 0 and collapse the first valid trio.
+  // dir: 0=left,1=up,2=right,3=down. Returns { grid, moved, gained }.
+  function computeMove(srcGrid, dir) {
+    let g = cloneGrid(srcGrid);
+    for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
+    let moved = false, gained = 0;
+    for (let r = 0; r < SIZE; r++) {
+      const orig = g[r];
+      const row = orig.filter(Boolean);
+      for (let i = 0; i + 2 < row.length; i++) {
+        const a = row[i], o = row[i + 1], b = row[i + 2];
+        if (a.kind === "num" && o.kind === "op" && b.kind === "num" && canCollapse(a.value, o.op, b.value)) {
+          const res = evalOp(a.value, o.op, b.value);
+          gained += res;
+          row.splice(i, 3, { id: a.id, kind: "num", value: res, merged: true });
+          break;   // at most one collapse per line per move
+        }
+      }
+      while (row.length < SIZE) row.push(null);
+      const newRow = [];
+      for (let c = 0; c < SIZE; c++) {
+        if (!sameTile(orig[c], row[c])) moved = true;
+        newRow[c] = row[c];
+      }
+      g[r] = newRow;
+    }
+    for (let i = 0; i < dir; i++) g = rotate(g);
+    return { grid: g, moved: moved, gained: gained };
+  }
+
+  function isGameOver() {
+    for (let d = 0; d < 4; d++) if (computeMove(grid, d).moved) return false;
+    return true;
+  }
+  function reachedTarget() {
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++) {
+        const t = grid[r][c];
+        if (t && t.kind === "num" && t.value >= TARGET) return true;
+      }
+    return false;
+  }
+
+  function move(dir) {
+    if (overlay.classList.contains("show")) return;
+    const res = computeMove(grid, dir);
+    if (!res.moved) return;
+    grid = res.grid;
+    score += res.gained;
+    addRandom();
+    render(false);
+    updateScore();
+    if (!won && reachedTarget()) { won = true; showWin(); saveState(); return; }
+    if (isGameOver()) showOver();
+    saveState();
+  }
+
+  function showWin() {
+    overlayMsg.textContent = "You reached " + TARGET + "! 🎉";
+    overlay.classList.add("win", "show");
+    keepBtn.style.display = "";
+  }
+  function showOver() {
+    overlayMsg.textContent = "Game Over";
+    overlay.classList.remove("win");
+    overlay.classList.add("show");
+    keepBtn.style.display = "none";
+  }
+
+  // --- Input -----------------------------------------------------------------
+  window.addEventListener("keydown", (e) => {
+    const map = { ArrowLeft: 0, ArrowUp: 1, ArrowRight: 2, ArrowDown: 3, a: 0, w: 1, d: 2, s: 3 };
+    if (e.key in map) { e.preventDefault(); move(map[e.key]); }
+  });
+  let startX = 0, startY = 0, tracking = false;
+  const THRESHOLD = 24;
+  const wrap = document.querySelector(".board-wrap");
+  wrap.addEventListener("touchstart", (e) => {
+    const t = e.changedTouches[0];
+    startX = t.clientX; startY = t.clientY; tracking = true;
+  }, { passive: true });
+  wrap.addEventListener("touchend", (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < THRESHOLD) return;
+    if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 2 : 0);
+    else move(dy > 0 ? 3 : 1);
+  }, { passive: true });
+
+  document.getElementById("new-game").addEventListener("click", newGame);
+  document.getElementById("restart-btn").addEventListener("click", newGame);
+  keepBtn.addEventListener("click", () => { overlay.classList.remove("show", "win"); saveState(); });
+
+  bestEl.textContent = best;
+  if (!loadState()) newGame();
+})();
+</script>
+</body>
+</html>
