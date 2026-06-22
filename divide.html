@@ -14,6 +14,7 @@
     --muted: #9a97b8;
     --accent: #f2b134;
     --gap: 2.5vmin;
+    --n: 4;
   }
   * {
     box-sizing: border-box; margin: 0; padding: 0;
@@ -98,8 +99,8 @@
     border-radius: 2.4vmin;
     padding: var(--gap);
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(4, 1fr);
+    grid-template-columns: repeat(var(--n), 1fr);
+    grid-template-rows: repeat(var(--n), 1fr);
     gap: var(--gap);
   }
   .grid-cell { background: var(--cell); border-radius: 1.6vmin; }
@@ -111,8 +112,8 @@
   }
   .tile {
     position: absolute;
-    width: calc((100% - 3 * var(--gap)) / 4);
-    height: calc((100% - 3 * var(--gap)) / 4);
+    width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
+    height: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
     border-radius: 1.6vmin;
     display: flex;
     align-items: center;
@@ -130,8 +131,8 @@
   /* Annihilation flash where a 1 clears its partner. */
   .burst {
     position: absolute;
-    width: calc((100% - 3 * var(--gap)) / 4);
-    height: calc((100% - 3 * var(--gap)) / 4);
+    width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
+    height: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
     border-radius: 1.6vmin;
     pointer-events: none;
     background: radial-gradient(circle, rgba(242,177,52,0.95) 0%, rgba(242,177,52,0.45) 35%, rgba(242,177,52,0) 70%);
@@ -251,6 +252,15 @@
     </div>
   </div>
 
+  <div class="difficulty">
+    <div class="label">Grid</div>
+    <div class="modes" id="sizes">
+      <button data-size="4">4×4</button>
+      <button data-size="5">5×5</button>
+      <button data-size="6">6×6</button>
+    </div>
+  </div>
+
   <footer>
     <p class="hint">Swipe to slide. Tiles combine when one divides the other → larger ÷ smaller.</p>
     <button id="new-game">New Game</button>
@@ -259,7 +269,10 @@
 <script>
 (function () {
   "use strict";
-  const SIZE = 4;
+  const SIZES = [4, 5, 6];
+  let SIZE = parseInt(localStorage.getItem("sizeDivide") || "4", 10);
+  if (SIZES.indexOf(SIZE) === -1) SIZE = 4;
+
   const boardEl = document.getElementById("board");
   const tilesEl = document.getElementById("tiles");
   const scoreEl = document.getElementById("score");
@@ -270,10 +283,21 @@
   let grid, score, best, idCounter;
   let bursts = [];   // impact cells (working space) collected during a move
 
-  // High score is tracked per difficulty mode.
-  function bestKey(mode) { return "bestDivide_" + mode; }
+  // Apply the current grid size: set the CSS variable and rebuild background cells.
+  function applySize() {
+    document.documentElement.style.setProperty("--n", SIZE);
+    boardEl.innerHTML = "";
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      const c = document.createElement("div");
+      c.className = "grid-cell";
+      boardEl.appendChild(c);
+    }
+  }
+
+  // High score is tracked per difficulty mode AND grid size.
+  function bestKey(mode, size) { return "bestDivide_" + mode + "_" + size; }
   function loadBest() {
-    best = parseInt(localStorage.getItem(bestKey(currentMode)) || "0", 10);
+    best = parseInt(localStorage.getItem(bestKey(currentMode, SIZE)) || "0", 10);
     bestEl.textContent = best;
   }
 
@@ -336,13 +360,6 @@
     return b / a;
   }
 
-  // Build static background cells
-  for (let i = 0; i < SIZE * SIZE; i++) {
-    const c = document.createElement("div");
-    c.className = "grid-cell";
-    boardEl.appendChild(c);
-  }
-
   function emptyGrid() {
     return Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
   }
@@ -361,7 +378,11 @@
   function loadState() {
     let data;
     try { data = JSON.parse(localStorage.getItem(STATE_KEY)); } catch (e) { return false; }
-    if (!data || !Array.isArray(data.grid) || data.grid.length !== SIZE) return false;
+    if (!data || !Array.isArray(data.grid) || SIZES.indexOf(data.grid.length) === -1) return false;
+    SIZE = data.grid.length;
+    localStorage.setItem("sizeDivide", String(SIZE));
+    applySize();
+    syncSizeButtons();
     if (MODES[data.mode]) currentMode = data.mode;
     buildWeights(MODES[currentMode].k);
     loadBest();
@@ -412,7 +433,8 @@
       el.style.color = "#fff";
     }
     const digits = String(v).length;
-    el.style.fontSize = digits >= 4 ? "4.2vmin" : digits === 3 ? "5.4vmin" : "7vmin";
+    const base = digits >= 4 ? 4.2 : digits === 3 ? 5.4 : 7;
+    el.style.fontSize = (base * 4 / SIZE) + "vmin";   // scale down on bigger grids
   }
 
   function posTransform(r, c) {
@@ -447,7 +469,7 @@
     scoreEl.textContent = score;
     if (score > best) {
       best = score;
-      localStorage.setItem(bestKey(currentMode), String(best));
+      localStorage.setItem(bestKey(currentMode, SIZE), String(best));
     }
     bestEl.textContent = best;
   }
@@ -597,15 +619,43 @@
   });
   syncModeButtons();
 
-  // One-time migration: fold the old single high score into the Normal mode.
-  const oldBest = localStorage.getItem("bestDivide");
-  if (oldBest !== null) {
-    const normKey = bestKey("normal");
-    if (parseInt(oldBest, 10) > parseInt(localStorage.getItem(normKey) || "0", 10))
-      localStorage.setItem(normKey, oldBest);
+  // ---- Grid-size selector ----
+  const sizesEl = document.getElementById("sizes");
+  function syncSizeButtons() {
+    for (const btn of sizesEl.children)
+      btn.classList.toggle("active", parseInt(btn.dataset.size, 10) === SIZE);
+  }
+  sizesEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const n = parseInt(btn.dataset.size, 10);
+    if (SIZES.indexOf(n) === -1) return;
+    SIZE = n;
+    localStorage.setItem("sizeDivide", String(SIZE));
+    applySize();
+    syncSizeButtons();
+    newGame();   // choosing a grid size starts a fresh game at that size
+  });
+
+  // Migrations: fold older best-score keys into the current per-mode/per-size form.
+  const ancient = localStorage.getItem("bestDivide");
+  if (ancient !== null) {
+    const k = "bestDivide_normal";
+    if (parseInt(ancient, 10) > parseInt(localStorage.getItem(k) || "0", 10)) localStorage.setItem(k, ancient);
     localStorage.removeItem("bestDivide");
   }
+  for (const mode in MODES) {
+    const k = "bestDivide_" + mode;            // pre-grid-size (implicitly 4x4)
+    const v = localStorage.getItem(k);
+    if (v !== null) {
+      const nk = bestKey(mode, 4);
+      if (parseInt(v, 10) > parseInt(localStorage.getItem(nk) || "0", 10)) localStorage.setItem(nk, v);
+      localStorage.removeItem(k);
+    }
+  }
 
+  applySize();
+  syncSizeButtons();
   // Resume a saved game if one exists; otherwise start fresh.
   if (!loadState()) newGame();
 })();

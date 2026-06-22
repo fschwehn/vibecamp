@@ -24,7 +24,8 @@ Once GitHub Pages is enabled, the arcade is live at:
 - Two tiles combine when the smaller divides the larger → result is `larger ÷ smaller`.
 - Equal tiles divide to `1`; a `1` annihilates any tile it merges with.
 - Pick a **difficulty** (Calm / Mild / Normal / Hard) — it changes the spawn mix.
-- Score, best score (per difficulty), and your in-progress game are saved on your device.
+- Pick a **grid size** (4×4 / 5×5 / 6×6).
+- Score, best score (per difficulty *and* grid size), and your in-progress game are saved on your device.
 
 ## Enabling GitHub Pages (one-time)
 
