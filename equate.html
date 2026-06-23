@@ -76,14 +76,6 @@
   }
   .score-box .value { font-size: 4.6vmin; font-weight: 800; }
 
-  .goal {
-    width: 100%; max-width: 92vmin;
-    text-align: center;
-    color: var(--muted);
-    font-size: 3vmin;
-  }
-  .goal b { color: var(--accent); }
-
   .board-wrap {
     position: relative;
     width: 92vmin; max-width: 92vmin;
@@ -153,7 +145,6 @@
   }
   .overlay.show { opacity: 1; pointer-events: auto; }
   .overlay .msg { font-size: 7vmin; font-weight: 800; }
-  .overlay.win .msg { color: var(--accent); }
   .overlay-buttons { display: flex; gap: 2.4vmin; flex-wrap: wrap; justify-content: center; }
 </style>
 </head>
@@ -167,15 +158,12 @@
     </div>
   </header>
 
-  <div class="goal">Goal: build exactly a <b id="target">100</b> tile</div>
-
   <div class="board-wrap">
     <div class="board" id="board"></div>
     <div class="tiles" id="tiles"></div>
     <div class="overlay" id="overlay">
       <div class="msg" id="overlay-msg"></div>
       <div class="overlay-buttons">
-        <button id="keep-btn">Keep going</button>
         <button id="restart-btn">New game</button>
       </div>
     </div>
@@ -190,7 +178,6 @@
 (function () {
   "use strict";
   const SIZE = 4;
-  const TARGET = 100;
 
   const boardEl = document.getElementById("board");
   const tilesEl = document.getElementById("tiles");
@@ -198,26 +185,25 @@
   const bestEl = document.getElementById("best");
   const overlay = document.getElementById("overlay");
   const overlayMsg = document.getElementById("overlay-msg");
-  const keepBtn = document.getElementById("keep-btn");
-  document.getElementById("target").textContent = TARGET;
 
-  let grid, score, best, idCounter, won;
+  let grid, score, best, idCounter, nextIsOp;
   best = parseInt(localStorage.getItem("bestEquate") || "0", 10);
 
   // --- Spawning --------------------------------------------------------------
-  const OP_CHANCE = 0.5;
-  const NUMS = [1, 1, 2, 2, 2, 3, 3, 4, 5];
-  const OPS  = ["+", "+", "+", "-", "-", "*", "*", "/", "/"];
+  // Only prime numbers ever spawn; tiles alternate number, operator, number...
+  const NUMS = [2, 2, 2, 3, 3, 3, 5, 5, 7, 11, 13];
+  const OPS  = ["+", "+", "+", "-", "-", "*", "*"];
   const SYMBOL = { "+": "+", "-": "−", "*": "×", "/": "÷" };
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function randomTile() {
-    if (Math.random() < OP_CHANCE) return { id: ++idCounter, kind: "op", op: pick(OPS), isNew: true };
+    const isOp = nextIsOp;
+    nextIsOp = !nextIsOp;
+    if (isOp) return { id: ++idCounter, kind: "op", op: pick(OPS), isNew: true };
     return { id: ++idCounter, kind: "num", value: pick(NUMS), isNew: true };
   }
 
   // --- Operator rules: order matters (a is the left operand, b the right) ----
   function canCollapse(a, op, b) {
-    if (op === "/") return b !== 0 && a % b === 0;   // exact division only
     return true;
   }
   function evalOp(a, op, b) {
@@ -225,7 +211,6 @@
       case "+": return a + b;
       case "-": return a - b;   // may be negative
       case "*": return a * b;
-      case "/": return a / b;
     }
   }
 
@@ -256,8 +241,8 @@
   function saveState() {
     const data = {
       grid: grid.map((row) => row.map(serializeTile)),
-      score: score, idCounter: idCounter, won: won,
-      over: overlay.classList.contains("show") && !overlay.classList.contains("win")
+      score: score, idCounter: idCounter, nextIsOp: nextIsOp,
+      over: overlay.classList.contains("show")
     };
     try { localStorage.setItem(STATE_KEY, JSON.stringify(data)); } catch (e) {}
   }
@@ -268,8 +253,8 @@
     grid = data.grid.map((row) => row.map((t) => (t ? Object.assign({}, t) : null)));
     score = data.score || 0;
     idCounter = data.idCounter || 0;
-    won = !!data.won;
-    overlay.classList.remove("show", "win");
+    nextIsOp = !!data.nextIsOp;
+    overlay.classList.remove("show");
     render(true);
     updateScore();
     if (data.over) showOver();
@@ -280,8 +265,8 @@
     grid = emptyGrid();
     score = 0;
     idCounter = 0;
-    won = false;
-    overlay.classList.remove("show", "win");
+    nextIsOp = false;   // first spawn is a number, then alternate
+    overlay.classList.remove("show");
     addRandom();
     addRandom();
     addRandom();
@@ -415,14 +400,6 @@
     for (let d = 0; d < 4; d++) if (computeMove(grid, d).moved) return false;
     return true;
   }
-  function reachedTarget() {
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++) {
-        const t = grid[r][c];
-        if (t && t.kind === "num" && t.value === TARGET) return true;
-      }
-    return false;
-  }
 
   function move(dir) {
     if (overlay.classList.contains("show")) return;
@@ -433,21 +410,13 @@
     addRandom();
     render(false);
     updateScore();
-    if (!won && reachedTarget()) { won = true; showWin(); saveState(); return; }
     if (isGameOver()) showOver();
     saveState();
   }
 
-  function showWin() {
-    overlayMsg.textContent = "You built " + TARGET + "! 🎉";
-    overlay.classList.add("win", "show");
-    keepBtn.style.display = "";
-  }
   function showOver() {
     overlayMsg.textContent = "Game Over";
-    overlay.classList.remove("win");
     overlay.classList.add("show");
-    keepBtn.style.display = "none";
   }
 
   // --- Input -----------------------------------------------------------------
@@ -474,7 +443,6 @@
 
   document.getElementById("new-game").addEventListener("click", newGame);
   document.getElementById("restart-btn").addEventListener("click", newGame);
-  keepBtn.addEventListener("click", () => { overlay.classList.remove("show", "win"); saveState(); });
 
   bestEl.textContent = best;
   if (!loadState()) newGame();
