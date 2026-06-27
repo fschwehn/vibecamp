@@ -25,7 +25,11 @@ Once GitHub Pages is enabled, the arcade is live at:
 - Equal tiles divide to `1`; a `1` annihilates any tile it merges with.
 - Pick a **difficulty** (Calm / Mild / Normal / Hard) — it changes the spawn mix.
 - Pick a **grid size** (4×4 / 5×5 / 6×6).
-- Score, best score (per difficulty *and* grid size), and your in-progress game are saved on your device.
+- Set the **max number** (8–512) — the largest spawnable tile. The spawn pool is
+  built from it at runtime, so raise it for more complexity or lower it for a
+  gentler game.
+- Score, best score (per difficulty, grid size *and* max number), and your
+  in-progress game are saved on your device.
 
 ## Enabling GitHub Pages (one-time)
 
