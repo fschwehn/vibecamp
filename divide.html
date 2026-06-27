@@ -469,14 +469,29 @@
     grid[r][c] = { id: ++idCounter, value: value, isNew: true };
   }
 
+  // Primes can't be broken down further (only a 1 clears them), so they get a
+  // distinct look: no fill, the value's color used for the number itself.
+  function isPrime(n) {
+    if (n < 2) return false;
+    for (let p = 2; p * p <= n; p++) if (n % p === 0) return false;
+    return true;
+  }
+
   // Consistent color per value via hue rotation; bigger numbers use a smaller font.
   function styleTile(el, v) {
     if (v === 1) {
       el.classList.add("one");
     } else {
-      const hue = (v * 47) % 360;
-      el.style.background = "hsl(" + hue + ", 62%, 56%)";
-      el.style.color = "#fff";
+      const color = "hsl(" + ((v * 47) % 360) + ", 62%, 56%)";
+      if (isPrime(v)) {
+        // Marked: transparent tile, color moves to the foreground + a faint ring.
+        el.style.background = "transparent";
+        el.style.color = color;
+        el.style.boxShadow = "inset 0 0 0 0.4vmin " + color;
+      } else {
+        el.style.background = color;
+        el.style.color = "#fff";
+      }
     }
     const digits = String(v).length;
     const base = digits >= 4 ? 4.2 : digits === 3 ? 5.4 : 7;
