@@ -204,6 +204,29 @@
   }
   .modes button.active { background: var(--accent); color: #1b1a26; }
 
+  /* Max-number field */
+  .maxnum { display: flex; align-items: center; gap: 1.6vmin; }
+  .maxnum input {
+    background: var(--board);
+    color: var(--text);
+    border: none;
+    border-radius: 1.6vmin;
+    padding: 1.4vmin 2vmin;
+    font-size: 3vmin;
+    font-weight: 800;
+    font-family: inherit;
+    width: 22vmin;
+    text-align: center;
+  }
+  .maxnum input::-webkit-outer-spin-button,
+  .maxnum input::-webkit-inner-spin-button { margin: 0; }
+  .maxnum .range-hint {
+    color: var(--muted);
+    font-size: 2.6vmin;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
   .overlay {
     position: absolute;
     inset: 0;
@@ -261,6 +284,14 @@
     </div>
   </div>
 
+  <div class="difficulty">
+    <div class="label">Max number</div>
+    <div class="maxnum">
+      <input type="number" id="maxnum" inputmode="numeric" min="8" max="512" step="1" aria-label="Largest spawnable number">
+      <span class="range-hint">8–512</span>
+    </div>
+  </div>
+
   <footer>
     <p class="hint">Swipe to slide. Tiles combine when one divides the other → larger ÷ smaller.</p>
     <button id="new-game">New Game</button>
@@ -294,10 +325,11 @@
     }
   }
 
-  // High score is tracked per difficulty mode AND grid size.
-  function bestKey(mode, size) { return "bestDivide_" + mode + "_" + size; }
+  // High score is tracked per difficulty mode, grid size AND max number — each
+  // of these changes the game enough that scores aren't comparable across them.
+  function bestKey(mode, size, max) { return "bestDivide_" + mode + "_" + size + "_" + max; }
   function loadBest() {
-    best = parseInt(localStorage.getItem(bestKey(currentMode, SIZE)) || "0", 10);
+    best = parseInt(localStorage.getItem(bestKey(currentMode, SIZE, MAX_SPAWN)) || "0", 10);
     bestEl.textContent = best;
   }
 
@@ -306,7 +338,18 @@
   // easy to break down (more prime factors) and small are more common; large
   // primes are rare. The board always needs small divisors, so 1 (the
   // "annihilate" tool) and the bases 2, 3 get a fixed boost on top.
-  const MAX_SPAWN = 72;
+  //
+  // MAX_SPAWN — the largest spawnable number — is configurable via the "Max
+  // number" field so the spawn pool, and with it the game's complexity, can be
+  // tuned at runtime. The cumulative-weight table is rebuilt from it on every
+  // new game / resume, so the pool is built dynamically rather than baked in.
+  const MAX_SPAWN_MIN = 8, MAX_SPAWN_MAX = 512, MAX_SPAWN_DEFAULT = 72;
+  function clampMax(n) {
+    n = Math.round(n);
+    if (!isFinite(n)) return MAX_SPAWN_DEFAULT;
+    return Math.min(MAX_SPAWN_MAX, Math.max(MAX_SPAWN_MIN, n));
+  }
+  let MAX_SPAWN = clampMax(parseInt(localStorage.getItem("maxSpawnDivide"), 10));
 
   // Number of prime factors with multiplicity, e.g. omega(12) = omega(2*2*3) = 3.
   function omega(n) {
@@ -371,7 +414,7 @@
       row.map((c) => (c ? { id: c.id, value: c.value } : null)));
     const data = {
       grid: cells, score: score, idCounter: idCounter,
-      mode: currentMode, over: overlay.classList.contains("show")
+      mode: currentMode, max: MAX_SPAWN, over: overlay.classList.contains("show")
     };
     try { localStorage.setItem(STATE_KEY, JSON.stringify(data)); } catch (e) {}
   }
@@ -384,6 +427,9 @@
     applySize();
     syncSizeButtons();
     if (MODES[data.mode]) currentMode = data.mode;
+    MAX_SPAWN = clampMax(data.max != null ? data.max : MAX_SPAWN_DEFAULT);
+    localStorage.setItem("maxSpawnDivide", String(MAX_SPAWN));
+    syncMaxInput();
     buildWeights(MODES[currentMode].k);
     loadBest();
     grid = data.grid.map((row) =>
@@ -469,7 +515,7 @@
     scoreEl.textContent = score;
     if (score > best) {
       best = score;
-      localStorage.setItem(bestKey(currentMode, SIZE), String(best));
+      localStorage.setItem(bestKey(currentMode, SIZE, MAX_SPAWN), String(best));
     }
     bestEl.textContent = best;
   }
@@ -637,6 +683,21 @@
     newGame();   // choosing a grid size starts a fresh game at that size
   });
 
+  // ---- Max-number field ----
+  const maxnumEl = document.getElementById("maxnum");
+  function syncMaxInput() { maxnumEl.value = MAX_SPAWN; }
+  function applyMax(raw) {
+    const next = clampMax(parseInt(raw, 10));
+    if (next !== MAX_SPAWN) {
+      MAX_SPAWN = next;
+      localStorage.setItem("maxSpawnDivide", String(MAX_SPAWN));
+      newGame();   // changing the spawn pool starts a fresh game
+    }
+    syncMaxInput();   // always reflect the clamped/valid value back into the field
+  }
+  maxnumEl.addEventListener("change", () => applyMax(maxnumEl.value));
+  syncMaxInput();
+
   // Migrations: fold older best-score keys into the current per-mode/per-size form.
   const ancient = localStorage.getItem("bestDivide");
   if (ancient !== null) {
@@ -648,9 +709,22 @@
     const k = "bestDivide_" + mode;            // pre-grid-size (implicitly 4x4)
     const v = localStorage.getItem(k);
     if (v !== null) {
-      const nk = bestKey(mode, 4);
+      const nk = bestKey(mode, 4, MAX_SPAWN_DEFAULT);
       if (parseInt(v, 10) > parseInt(localStorage.getItem(nk) || "0", 10)) localStorage.setItem(nk, v);
       localStorage.removeItem(k);
+    }
+  }
+  // Fold per-mode/per-size best scores (implicitly recorded at MAX_SPAWN 72)
+  // into the new per-max-number form so existing records survive.
+  for (const mode in MODES) {
+    for (const size of SIZES) {
+      const k = "bestDivide_" + mode + "_" + size;   // pre-max-number key
+      const v = localStorage.getItem(k);
+      if (v !== null) {
+        const nk = bestKey(mode, size, MAX_SPAWN_DEFAULT);
+        if (parseInt(v, 10) > parseInt(localStorage.getItem(nk) || "0", 10)) localStorage.setItem(nk, v);
+        localStorage.removeItem(k);
+      }
     }
   }
 
