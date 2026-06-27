@@ -28,6 +28,9 @@ Once GitHub Pages is enabled, the arcade is live at:
 - Set the **max number** (8–512) — the largest spawnable tile. The spawn pool is
   built from it at runtime, so raise it for more complexity or lower it for a
   gentler game.
+- Toggle **Debug → Step merges** to replay each move one combine at a time —
+  the board slides, then every pair is highlighted and collapsed in turn with a
+  pill spelling out the division (e.g. `12 ÷ 3 = 4`). Toggle it on/off any time.
 - Score, best score (per difficulty, grid size *and* max number), and your
   in-progress game are saved on your device.
 
