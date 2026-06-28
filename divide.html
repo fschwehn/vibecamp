@@ -245,8 +245,8 @@
   .overlay.show { opacity: 1; pointer-events: auto; }
   .overlay .msg { font-size: 9vmin; font-weight: 800; }
 
-  /* Debug mode: per-merge readout pill + the two tiles about to combine. */
-  .debug-readout {
+  /* Replay: per-merge readout pill + the two tiles about to combine. */
+  .replay-readout {
     position: fixed;
     top: max(2vmin, env(safe-area-inset-top));
     left: 50%;
@@ -264,7 +264,10 @@
     transition: opacity 0.15s ease;
     z-index: 20;
   }
-  .debug-readout.show { opacity: 1; }
+  .replay-readout.show { opacity: 1; }
+  .footer-btns { display: flex; gap: 1.6vmin; align-items: center; }
+  button.secondary { background: var(--board); color: var(--text); }
+  button.secondary:disabled { opacity: 0.4; cursor: default; transform: none; }
   .tile.focus {
     outline: 0.7vmin solid var(--accent);
     outline-offset: -0.35vmin;
@@ -279,7 +282,7 @@
 </head>
 <body>
   <a class="home-link" href="./" aria-label="All games">‹</a>
-  <div class="debug-readout" id="debugReadout" aria-live="polite"></div>
+  <div class="replay-readout" id="replayReadout" aria-live="polite"></div>
   <header>
     <h1>÷</h1>
     <div class="scores">
@@ -324,16 +327,12 @@
     </div>
   </div>
 
-  <div class="difficulty">
-    <div class="label">Debug</div>
-    <div class="modes" id="debugToggle">
-      <button data-debug="step">Step merges</button>
-    </div>
-  </div>
-
   <footer>
     <p class="hint">Swipe to slide. Tiles combine when one divides the other → larger ÷ smaller.</p>
-    <button id="new-game">New Game</button>
+    <div class="footer-btns">
+      <button id="replay" class="secondary" disabled>↻ Replay</button>
+      <button id="new-game">New Game</button>
+    </div>
   </footer>
 
 <script>
@@ -353,14 +352,18 @@
   let grid, score, best, idCounter;
   let bursts = [];   // impact cells (working space) collected during a move
 
-  // Debug mode: replay a move as a slide then one merge at a time, with a pill
-  // spelling out each division. Toggled live; the in-flight playback is guarded
-  // by a token so a New Game / size change can abort it cleanly.
-  const debugReadout = document.getElementById("debugReadout");
-  let debug = localStorage.getItem("debugDivide") === "1";
+  // Replay: every move that changes the board is captured (the pre-move grid +
+  // the step-by-step plan), so it can be re-animated on demand — a slide, then
+  // one combine at a time with a pill spelling out each division. Replay is
+  // purely visual: it never touches score or game state. An in-flight replay is
+  // guarded by a token so New Game / size changes abort it cleanly.
+  const readoutEl = document.getElementById("replayReadout");
+  const replayBtn = document.getElementById("replay");
+  let lastReplay = null;            // { preGrid, frames, dir } of the last move
   let animating = false, moveToken = 0;
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-  const DEBUG_SLIDE_MS = 240, DEBUG_FOCUS_MS = 480, DEBUG_STEP_MS = 460;
+  const REPLAY_PRE_MS = 360, REPLAY_SLIDE_MS = 300, REPLAY_FOCUS_MS = 520, REPLAY_STEP_MS = 500;
+  const cloneGrid = (g) => g.map((row) => row.map((c) => (c ? Object.assign({}, c) : null)));
 
   // Apply the current grid size: set the CSS variable and rebuild background cells.
   function applySize() {
@@ -493,9 +496,10 @@
   }
 
   function newGame() {
-    moveToken++;            // abort any in-flight debug playback
+    moveToken++;            // abort any in-flight replay
     animating = false;
     clearReadout();
+    setReplay(null);        // nothing to replay on a fresh board
     grid = emptyGrid();
     score = 0;
     idCounter = 0;
@@ -614,7 +618,7 @@
     tilesEl.appendChild(el);
   }
 
-  // Brief board nudge, reused by the instant and debug paths on annihilation.
+  // Brief board nudge, reused by the live move and replay on annihilation.
   function shakeBoard() {
     wrap.classList.remove("shake");
     void wrap.offsetWidth;        // restart the animation
@@ -622,8 +626,8 @@
   }
 
   function setReadout(text) {
-    debugReadout.textContent = text || "";
-    debugReadout.classList.toggle("show", !!text);
+    readoutEl.textContent = text || "";
+    readoutEl.classList.toggle("show", !!text);
   }
   function clearReadout() { setReadout(""); }
 
@@ -657,11 +661,20 @@
     return moved;
   }
 
+  // Remember the last board-changing move so it can be replayed on demand.
+  function setReplay(data) {
+    lastReplay = data;
+    replayBtn.disabled = !data;
+  }
+
   // dir: 0=left,1=up,2=right,3=down
   function move(dir) {
     if (overlay.classList.contains("show")) return;
-    if (animating) return;                 // ignore input mid debug-playback
-    if (debug) { moveAnimated(dir); return; }
+    if (animating) return;                 // ignore input mid-replay
+    // Capture the pre-move board and the step-by-step plan BEFORE mutating, so a
+    // later Replay can re-animate exactly this move. planMove is pure.
+    const preGrid = cloneGrid(grid);
+    const plan = planMove(dir);
     let g = grid;
     bursts = [];
     // Rotate so the target direction becomes "left", slide, then rotate back.
@@ -680,6 +693,7 @@
       }
       if (bursts.length) shakeBoard();
       updateScore();
+      setReplay({ preGrid: preGrid, frames: plan.frames, dir: dir });
       if (isGameOver()) endGame();
       saveState();
     }
@@ -691,10 +705,10 @@
     return res === 0 ? "1 clears " + hi : hi + " ÷ " + lo + " = " + res;
   }
 
-  // Plan a debug move in "left" space: a slide frame, then — per combine — a
-  // "focus" frame highlighting the two tiles, then the merged/annihilated frame.
-  // Each frame carries its own deep-copied grid so per-tile flags don't leak.
-  // dir is only used to rotate frames back to board space at render time.
+  // Break a move down in "left" space into replay frames: a slide frame, then —
+  // per combine — a "focus" frame highlighting the two tiles, then the merged /
+  // annihilated frame. Each frame carries its own deep-copied grid so per-tile
+  // flags don't leak. dir is only used to rotate frames back at render time.
   function planMove(dir) {
     let g = grid;
     for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
@@ -755,42 +769,45 @@
     return { frames, moved };
   }
 
-  function moveAnimated(dir) {
-    const plan = planMove(dir);
-    if (plan.moved) playFrames(plan, dir);
-  }
-
-  // Render the planned frames one at a time, rotating each back into board space,
-  // ticking the score and flashing bursts as merges land. A token lets New Game
-  // (etc.) abort a playback that's already running.
-  async function playFrames(plan, dir) {
+  // Re-animate the last move, purely as a visual aid — it never changes score or
+  // game state. Plays: the board as it was, the slide, then each combine one at a
+  // time (two tiles highlighted, a pill spelling out the division, then collapse),
+  // and finally snaps back to the real current board. Repeatable. A token lets
+  // New Game / size changes abort a replay that's already running.
+  async function replayLast() {
+    if (!lastReplay || animating) return;
+    if (overlay.classList.contains("show")) return;   // board is covered
     animating = true;
     const token = ++moveToken;
-    for (const f of plan.frames) {
-      if (token !== moveToken) { animating = false; return; }   // aborted
-      let fg = f.grid;
-      for (let i = 0; i < dir; i++) fg = rotate(fg);
+    const ref = lastReplay;
+    const saved = grid;                  // the true current board (post-move + spawn)
+    function finish() { grid = saved; render(false); clearReadout(); animating = false; }
+
+    // 1) the board exactly as it was before the move
+    grid = cloneGrid(ref.preGrid);
+    render(false);
+    clearReadout();
+    await sleep(REPLAY_PRE_MS);
+
+    // 2) slide, then each combine
+    for (const f of ref.frames) {
+      if (token !== moveToken) { finish(); return; }
+      let fg = cloneGrid(f.grid);        // clone so frame flags survive repeats
+      for (let i = 0; i < ref.dir; i++) fg = rotate(fg);
       grid = fg;
       render(false);
       setReadout(f.text);
-      if (f.scoreDelta) { score += f.scoreDelta; updateScore(); }
       if (f.kind === "annih") {
-        const [r, c] = rotatePoint(f.burst.r, f.burst.c, dir);
+        const [r, c] = rotatePoint(f.burst.r, f.burst.c, ref.dir);
         spawnBurst(r, c);
         shakeBoard();
       }
-      await sleep(f.kind === "slide" ? DEBUG_SLIDE_MS
-                : f.kind === "focus" ? DEBUG_FOCUS_MS : DEBUG_STEP_MS);
+      await sleep(f.kind === "slide" ? REPLAY_SLIDE_MS
+                : f.kind === "focus" ? REPLAY_FOCUS_MS : REPLAY_STEP_MS);
     }
-    if (token !== moveToken) { animating = false; return; }
-    // grid now holds the final merged board; drop in the new tile and settle.
-    addRandom();
-    render(false);
-    clearReadout();
-    updateScore();
-    animating = false;
-    if (isGameOver()) endGame();
-    saveState();
+    if (token !== moveToken) { finish(); return; }
+    await sleep(REPLAY_STEP_MS);
+    finish();                            // settle back to the real current board
   }
 
   function isGameOver() {
@@ -814,7 +831,11 @@
     const map = { ArrowLeft: 0, ArrowUp: 1, ArrowRight: 2, ArrowDown: 3,
                   a: 0, w: 1, d: 2, s: 3 };
     if (e.key in map) { e.preventDefault(); move(map[e.key]); }
+    else if (e.key === "r" || e.key === "R") { e.preventDefault(); replayLast(); }
   });
+
+  // ---- Replay last move ----
+  replayBtn.addEventListener("click", replayLast);
 
   // ---- Input: touch swipe ----
   let startX = 0, startY = 0, tracking = false;
@@ -885,22 +906,6 @@
   }
   maxnumEl.addEventListener("change", () => applyMax(maxnumEl.value));
   syncMaxInput();
-
-  // ---- Debug toggle (step through merges) ----
-  const debugEl = document.getElementById("debugToggle");
-  function syncDebugButton() {
-    debugEl.firstElementChild.classList.toggle("active", debug);
-  }
-  debugEl.addEventListener("click", (e) => {
-    if (!e.target.closest("button")) return;
-    debug = !debug;
-    localStorage.setItem("debugDivide", debug ? "1" : "0");
-    syncDebugButton();
-    if (!debug) {                 // turning it off clears any lingering pill
-      moveToken++; animating = false; clearReadout();
-    }
-  });
-  syncDebugButton();
 
   // Migrations: fold older best-score keys into the current per-mode/per-size form.
   const ancient = localStorage.getItem("bestDivide");
