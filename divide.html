@@ -304,8 +304,7 @@
     font-size: 3.4vmin;
     font-weight: 800;
   }
-  /* The number itself gets the accent so 1 ÷ v and v ÷ v read as end-points. */
-  .divisors-pop .dp-chip.self { background: var(--accent); color: #1b1a26; }
+  .divisors-pop .dp-empty { font-size: 3vmin; font-weight: 700; color: var(--muted); }
   .tile.focus {
     outline: 0.7vmin solid var(--accent);
     outline-offset: -0.35vmin;
@@ -898,21 +897,31 @@
   function showDivisors(el) {
     const v = parseInt(el.dataset.value, 10);
     if (!v) return;
-    const divs = divisorsOf(v), prime = isPrime(v);
+    // Only the proper divisors (1 and the number itself are dropped) — those are
+    // the values it can actually combine with.
+    const divs = divisorsOf(v).filter((d) => d !== 1 && d !== v);
+    const prime = isPrime(v);
     popEl.innerHTML = "";
     const title = document.createElement("div");
     title.className = "dp-title";
     title.textContent = "Divisors of " + v + (prime ? " · prime" : "");
-    const list = document.createElement("div");
-    list.className = "dp-list";
-    for (const d of divs) {
-      const chip = document.createElement("span");
-      chip.className = "dp-chip" + (d === 1 || d === v ? " self" : "");
-      chip.textContent = d;
-      list.appendChild(chip);
-    }
     popEl.appendChild(title);
-    popEl.appendChild(list);
+    if (divs.length) {
+      const list = document.createElement("div");
+      list.className = "dp-list";
+      for (const d of divs) {
+        const chip = document.createElement("span");
+        chip.className = "dp-chip";
+        chip.textContent = d;
+        list.appendChild(chip);
+      }
+      popEl.appendChild(list);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "dp-empty";
+      empty.textContent = "No divisors in between";
+      popEl.appendChild(empty);
+    }
     popEl.classList.add("show");       // show first so we can measure it
     popOpenFor = el;
     positionPop(el);

@@ -28,8 +28,8 @@ Once GitHub Pages is enabled, the arcade is live at:
 - Set the **max number** (8–512) — the largest spawnable tile. The spawn pool is
   built from it at runtime, so raise it for more complexity or lower it for a
   gentler game.
-- **Tap a tile** to pop up all of its divisors (primes are flagged) — a quick
-  hint at what it can combine with.
+- **Tap a tile** to pop up its divisors — the smaller numbers it can combine
+  with (1 and the number itself are left out; primes are flagged).
 - Tap **↻ Replay** (or press `r`) to re-watch the last move in slow motion: the
   board slides, then every pair is highlighted and collapsed in turn with a pill
   spelling out the division (e.g. `12 ÷ 3 = 4`). It's purely a visual aid — it
