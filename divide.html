@@ -122,6 +122,8 @@
     font-size: 7vmin;
     transition: transform 0.12s ease-in-out;
     will-change: transform;
+    pointer-events: auto;   /* tap a tile for its divisors (swipes still bubble) */
+    cursor: pointer;
   }
   .tile.pop { animation: pop 0.16s ease; }
   .tile.spawn { animation: spawn 0.16s ease; }
@@ -268,6 +270,42 @@
   .footer-btns { display: flex; gap: 1.6vmin; align-items: center; }
   button.secondary { background: var(--board); color: var(--text); }
   button.secondary:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+  /* Tap-a-tile divisors popover */
+  .divisors-pop {
+    position: fixed;
+    z-index: 30;
+    background: var(--board);
+    color: var(--text);
+    border-radius: 1.6vmin;
+    padding: 1.6vmin 1.8vmin;
+    box-shadow: 0 1vmin 3vmin rgba(0, 0, 0, 0.5);
+    display: none;
+    flex-direction: column;
+    gap: 1vmin;
+    max-width: min(64vmin, 90vw);
+    opacity: 0;
+    transform: scale(0.94);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+  .divisors-pop.show { display: flex; opacity: 1; transform: scale(1); }
+  .divisors-pop .dp-title {
+    font-size: 2.5vmin;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .divisors-pop .dp-list { display: flex; flex-wrap: wrap; gap: 1vmin; }
+  .divisors-pop .dp-chip {
+    background: var(--cell);
+    border-radius: 1vmin;
+    padding: 0.7vmin 1.6vmin;
+    font-size: 3.4vmin;
+    font-weight: 800;
+  }
+  /* The number itself gets the accent so 1 ÷ v and v ÷ v read as end-points. */
+  .divisors-pop .dp-chip.self { background: var(--accent); color: #1b1a26; }
   .tile.focus {
     outline: 0.7vmin solid var(--accent);
     outline-offset: -0.35vmin;
@@ -334,6 +372,8 @@
       <button id="new-game">New Game</button>
     </div>
   </footer>
+
+  <div class="divisors-pop" id="divisorsPop" role="dialog" aria-label="Divisors"></div>
 
 <script>
 (function () {
@@ -499,6 +539,7 @@
     moveToken++;            // abort any in-flight replay
     animating = false;
     clearReadout();
+    hideDivisors();
     setReplay(null);        // nothing to replay on a fresh board
     grid = emptyGrid();
     score = 0;
@@ -571,6 +612,7 @@
         el.style.setProperty("--pos", pos);
         el.style.transform = pos;
         el.textContent = cell.value;
+        el.dataset.value = cell.value;
         if (cell.merged) el.classList.add("pop");
         if (cell.focus) el.classList.add("focus");
         if (cell.isNew && !initial) el.classList.add("spawn");
@@ -671,6 +713,7 @@
   function move(dir) {
     if (overlay.classList.contains("show")) return;
     if (animating) return;                 // ignore input mid-replay
+    hideDivisors();                        // a move invalidates any open popover
     // Capture the pre-move board and the step-by-step plan BEFORE mutating, so a
     // later Replay can re-animate exactly this move. planMove is pure.
     const preGrid = cloneGrid(grid);
@@ -777,6 +820,7 @@
   async function replayLast() {
     if (!lastReplay || animating) return;
     if (overlay.classList.contains("show")) return;   // board is covered
+    hideDivisors();
     animating = true;
     const token = ++moveToken;
     const ref = lastReplay;
@@ -836,6 +880,68 @@
 
   // ---- Replay last move ----
   replayBtn.addEventListener("click", replayLast);
+
+  // ---- Tap a tile to see its divisors ----
+  const popEl = document.getElementById("divisorsPop");
+  let popOpenFor = null;               // the tile element the popover currently describes
+
+  // All divisors of n, ascending (1 and n included).
+  function divisorsOf(n) {
+    const d = [];
+    for (let i = 1; i * i <= n; i++)
+      if (n % i === 0) { d.push(i); if (i !== n / i) d.push(n / i); }
+    return d.sort((a, b) => a - b);
+  }
+
+  function hideDivisors() { popEl.classList.remove("show"); popOpenFor = null; }
+
+  function showDivisors(el) {
+    const v = parseInt(el.dataset.value, 10);
+    if (!v) return;
+    const divs = divisorsOf(v), prime = isPrime(v);
+    popEl.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "dp-title";
+    title.textContent = "Divisors of " + v + (prime ? " · prime" : "");
+    const list = document.createElement("div");
+    list.className = "dp-list";
+    for (const d of divs) {
+      const chip = document.createElement("span");
+      chip.className = "dp-chip" + (d === 1 || d === v ? " self" : "");
+      chip.textContent = d;
+      list.appendChild(chip);
+    }
+    popEl.appendChild(title);
+    popEl.appendChild(list);
+    popEl.classList.add("show");       // show first so we can measure it
+    popOpenFor = el;
+    positionPop(el);
+  }
+
+  // Float the popover just above the tapped tile, flipping below / clamping to
+  // the viewport when there isn't room.
+  function positionPop(el) {
+    const r = el.getBoundingClientRect(), p = popEl.getBoundingClientRect(), m = 8;
+    let top = r.top - p.height - m;
+    if (top < m) top = r.bottom + m;
+    let left = r.left + r.width / 2 - p.width / 2;
+    left = Math.max(m, Math.min(left, window.innerWidth - p.width - m));
+    popEl.style.top = top + "px";
+    popEl.style.left = left + "px";
+  }
+
+  tilesEl.addEventListener("click", (e) => {
+    if (animating) return;             // tiles are mid-replay; don't pin a popover
+    const el = e.target.closest(".tile");
+    if (!el) return;
+    if (popOpenFor === el) { hideDivisors(); return; }   // tap again to dismiss
+    showDivisors(el);
+  });
+  // Any tap/click that isn't on a tile or inside the popover closes it.
+  document.addEventListener("click", (e) => {
+    if (popOpenFor && !e.target.closest(".tile") && !e.target.closest("#divisorsPop")) hideDivisors();
+  });
+  window.addEventListener("resize", hideDivisors);
 
   // ---- Input: touch swipe ----
   let startX = 0, startY = 0, tracking = false;
