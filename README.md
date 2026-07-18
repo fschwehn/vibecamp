@@ -10,6 +10,9 @@ GitHub Pages. No build step, no dependencies: each game is a single HTML file.
 - `equate.html` — **Equate**, a sliding game with numbers *and* operators
   (`+ − ×`); slide a number into an operator to arm it (`5−`), then into another
   number to run it. Only primes spawn; numbers and operators spawn alternately.
+- `ascend.html` — **Ascend**, a leveled variant of Divide: only composite
+  (non-prime) numbers spawn, starting small, and the spawn pool grows a level at
+  a time — the deeper you go, the bigger the numbers.
 - Add a new game by dropping a self-contained `<name>.html` in the repo and
   adding one entry to the `GAMES` array in `index.html`.
 
@@ -36,6 +39,22 @@ Once GitHub Pages is enabled, the arcade is live at:
   never changes your score — so replay it as many times as you like.
 - Score, best score (per difficulty, grid size *and* max number), and your
   in-progress game are saved on your device.
+
+## Ascend — how to play
+
+- A leveled variant of **Divide** — same slide-and-divide rules, but the spawn
+  pool is different and it grows as you play.
+- **Only composite (non-prime) numbers spawn**, starting with the smallest ones
+  (`4, 6, 8, 9`). Primes only ever show up as *results* of a division; `1`s are
+  still produced in-game when two equal tiles divide.
+- **Levels:** every 10 spawns, the level ticks up and one bigger composite joins
+  the spawn pool. Small numbers stay in the mix, so the board keeps moving while
+  the ceiling slowly rises.
+- Pick a **grid size** (4×4 / 5×5 / 6×6). There's no difficulty setting — the
+  levels are the difficulty curve.
+- The header shows your current **Score**, current **Level**, and **Best** — and
+  the Best box also shows the **max level reached**. Score, best score, and max
+  level are saved per grid size, along with your in-progress game.
 
 ## Enabling GitHub Pages (one-time)
 
