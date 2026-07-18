@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b1a26">
+<title>Ascend — vibecamp</title>
+<style>
+  :root {
+    --bg: #1b1a26;
+    --board: #2c2a3e;
+    --cell: #3a3850;
+    --text: #f4f3ff;
+    --muted: #9a97b8;
+    --accent: #f2b134;
+    --gap: 2.5vmin;
+    --n: 4;
+  }
+  * {
+    box-sizing: border-box; margin: 0; padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  ::selection { background: transparent; }
+
+  /* Link back to the games hub */
+  .home-link {
+    position: fixed;
+    top: max(2vmin, env(safe-area-inset-top));
+    left: max(3vmin, env(safe-area-inset-left));
+    z-index: 10;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 5vmin;
+    font-weight: 800;
+    line-height: 1;
+    padding: 1vmin 2vmin;
+  }
+  .home-link:active { color: var(--accent); }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3vmin;
+    padding: max(3vmin, env(safe-area-inset-top)) 4vmin max(3vmin, env(safe-area-inset-bottom));
+    user-select: none;
+  }
+  header {
+    width: 100%;
+    max-width: 92vmin;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3vmin;
+  }
+  h1 {
+    font-size: 9vmin;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--accent);
+  }
+  .scores { display: flex; gap: 2vmin; }
+  .score-box {
+    background: var(--board);
+    border-radius: 1.6vmin;
+    padding: 1.4vmin 3vmin;
+    text-align: center;
+    min-width: 20vmin;
+  }
+  .score-box .label {
+    font-size: 2.6vmin;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .score-box .value { font-size: 5vmin; font-weight: 800; }
+  .score-box .sub { font-size: 2.4vmin; font-weight: 700; color: var(--muted); margin-top: 0.4vmin; }
+
+  .board-wrap {
+    position: relative;
+    width: 92vmin;
+    max-width: 92vmin;
+    aspect-ratio: 1 / 1;
+  }
+  .board {
+    position: absolute;
+    inset: 0;
+    background: var(--board);
+    border-radius: 2.4vmin;
+    padding: var(--gap);
+    display: grid;
+    grid-template-columns: repeat(var(--n), 1fr);
+    grid-template-rows: repeat(var(--n), 1fr);
+    gap: var(--gap);
+  }
+  .grid-cell { background: var(--cell); border-radius: 1.6vmin; }
+
+  .tiles {
+    position: absolute;
+    inset: var(--gap);
+    pointer-events: none;
+  }
+  .tile {
+    position: absolute;
+    width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
+    height: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
+    border-radius: 1.6vmin;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 7vmin;
+    transition: transform 0.12s ease-in-out;
+    will-change: transform;
+    pointer-events: auto;   /* tap a tile for its divisors (swipes still bubble) */
+    cursor: pointer;
+  }
+  .tile.pop { animation: pop 0.16s ease; }
+  .tile.spawn { animation: spawn 0.16s ease; }
+  @keyframes pop { 0% { transform: var(--pos) scale(1); } 50% { transform: var(--pos) scale(1.16); } 100% { transform: var(--pos) scale(1); } }
+  @keyframes spawn { 0% { transform: var(--pos) scale(0); } 100% { transform: var(--pos) scale(1); } }
+
+  /* Annihilation flash where a 1 clears its partner. */
+  .burst {
+    position: absolute;
+    width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
+    height: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
+    border-radius: 1.6vmin;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(242,177,52,0.95) 0%, rgba(242,177,52,0.45) 35%, rgba(242,177,52,0) 70%);
+    animation: burst 0.42s ease-out forwards;
+    z-index: 4;
+  }
+  @keyframes burst {
+    0%   { transform: var(--pos) scale(0.35); opacity: 1; }
+    100% { transform: var(--pos) scale(1.9); opacity: 0; }
+  }
+  .board-wrap.shake { animation: shake 0.18s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(0.8vmin, -0.4vmin); }
+    75% { transform: translate(-0.8vmin, 0.4vmin); }
+  }
+
+  .tile { background: #6c5ce7; color: #fff; }
+  /* Inert "1" tiles: muted, locked-looking. Only a pair of 1s can clear. */
+  .tile.one {
+    background: #3a3850;
+    color: var(--muted);
+    box-shadow: inset 0 0 0 0.5vmin #4a4866;
+  }
+
+  footer {
+    width: 100%;
+    max-width: 92vmin;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3vmin;
+  }
+  p.hint { color: var(--muted); font-size: 3vmin; }
+  button {
+    background: var(--accent);
+    color: #1b1a26;
+    border: none;
+    border-radius: 1.6vmin;
+    padding: 2vmin 4vmin;
+    font-size: 3.4vmin;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  button:active { transform: scale(0.96); }
+
+  /* Difficulty selector */
+  .difficulty {
+    width: 100%;
+    max-width: 92vmin;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.4vmin;
+  }
+  .difficulty .label {
+    font-size: 2.6vmin;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .modes { display: flex; gap: 1.6vmin; flex-wrap: wrap; justify-content: center; }
+  .modes button {
+    background: var(--board);
+    color: var(--muted);
+    padding: 1.4vmin 3vmin;
+    font-size: 3vmin;
+  }
+  .modes button.active { background: var(--accent); color: #1b1a26; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(27,26,38,0.86);
+    border-radius: 2.4vmin;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3vmin;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 5;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .overlay .msg { font-size: 9vmin; font-weight: 800; }
+
+  /* Replay: per-merge readout pill + the two tiles about to combine. */
+  .replay-readout {
+    position: fixed;
+    top: max(2vmin, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #1b1a26;
+    font-weight: 800;
+    font-size: 3.4vmin;
+    letter-spacing: 0.02em;
+    padding: 1vmin 2.6vmin;
+    border-radius: 1.4vmin;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 20;
+  }
+  .replay-readout.show { opacity: 1; }
+  .footer-btns { display: flex; gap: 1.6vmin; align-items: center; }
+  button.secondary { background: var(--board); color: var(--text); }
+  button.secondary:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+  /* Tap-a-tile divisors popover */
+  .divisors-pop {
+    position: fixed;
+    z-index: 30;
+    background: var(--board);
+    color: var(--text);
+    border-radius: 1.6vmin;
+    padding: 1.6vmin 1.8vmin;
+    box-shadow: 0 1vmin 3vmin rgba(0, 0, 0, 0.5);
+    display: none;
+    flex-direction: column;
+    gap: 1vmin;
+    max-width: min(64vmin, 90vw);
+    opacity: 0;
+    transform: scale(0.94);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+  .divisors-pop.show { display: flex; opacity: 1; transform: scale(1); }
+  .divisors-pop .dp-title {
+    font-size: 2.5vmin;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .divisors-pop .dp-list { display: flex; flex-wrap: wrap; gap: 1vmin; }
+  .divisors-pop .dp-chip {
+    background: var(--cell);
+    border-radius: 1vmin;
+    padding: 0.7vmin 1.6vmin;
+    font-size: 3.4vmin;
+    font-weight: 800;
+  }
+  .divisors-pop .dp-empty { font-size: 3vmin; font-weight: 700; color: var(--muted); }
+  .tile.focus {
+    outline: 0.7vmin solid var(--accent);
+    outline-offset: -0.35vmin;
+    z-index: 3;
+    animation: focuspulse 0.46s ease-in-out infinite alternate;
+  }
+  @keyframes focuspulse {
+    0%   { transform: var(--pos) scale(1); }
+    100% { transform: var(--pos) scale(1.08); }
+  }
+</style>
+</head>
+<body>
+  <a class="home-link" href="./" aria-label="All games">‹</a>
+  <div class="replay-readout" id="replayReadout" aria-live="polite"></div>
+  <header>
+    <h1>▲</h1>
+    <div class="scores">
+      <div class="score-box"><div class="label">Score</div><div class="value" id="score">0</div></div>
+      <div class="score-box"><div class="label">Level</div><div class="value" id="level">1</div></div>
+      <div class="score-box"><div class="label">Best</div><div class="value" id="best">0</div><div class="sub" id="bestLevel">Lv 1</div></div>
+    </div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="overlay" id="overlay">
+      <div class="msg" id="overlay-msg">Game Over</div>
+      <button id="overlay-btn">Try again</button>
+    </div>
+  </div>
+
+  <div class="difficulty">
+    <div class="label">Grid</div>
+    <div class="modes" id="sizes">
+      <button data-size="4">4×4</button>
+      <button data-size="5">5×5</button>
+      <button data-size="6">6×6</button>
+    </div>
+  </div>
+
+  <footer>
+    <p class="hint">Only composite numbers spawn — bigger ones join the pool each level.</p>
+    <div class="footer-btns">
+      <button id="replay" class="secondary" disabled>↻ Replay</button>
+      <button id="new-game">New Game</button>
+    </div>
+  </footer>
+
+  <div class="divisors-pop" id="divisorsPop" role="dialog" aria-label="Divisors"></div>
+
+<script>
+(function () {
+  "use strict";
+  const SIZES = [4, 5, 6];
+  let SIZE = parseInt(localStorage.getItem("sizeAscend") || "4", 10);
+  if (SIZES.indexOf(SIZE) === -1) SIZE = 4;
+
+  const boardEl = document.getElementById("board");
+  const tilesEl = document.getElementById("tiles");
+  const scoreEl = document.getElementById("score");
+  const levelEl = document.getElementById("level");
+  const bestEl = document.getElementById("best");
+  const bestLevelEl = document.getElementById("bestLevel");
+  const overlay = document.getElementById("overlay");
+  const overlayMsg = document.getElementById("overlay-msg");
+
+  let grid, score, best, bestLevel, idCounter, spawnCount;
+  let bursts = [];   // impact cells (working space) collected during a move
+
+  // Replay: every move that changes the board is captured (the pre-move grid +
+  // the step-by-step plan), so it can be re-animated on demand — a slide, then
+  // one combine at a time with a pill spelling out each division. Replay is
+  // purely visual: it never touches score or game state. An in-flight replay is
+  // guarded by a token so New Game / size changes abort it cleanly.
+  const readoutEl = document.getElementById("replayReadout");
+  const replayBtn = document.getElementById("replay");
+  let lastReplay = null;            // { preGrid, frames, dir } of the last move
+  let animating = false, moveToken = 0;
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+  const REPLAY_PRE_MS = 360, REPLAY_SLIDE_MS = 300, REPLAY_FOCUS_MS = 520, REPLAY_STEP_MS = 500;
+  const cloneGrid = (g) => g.map((row) => row.map((c) => (c ? Object.assign({}, c) : null)));
+
+  // Apply the current grid size: set the CSS variable and rebuild background cells.
+  function applySize() {
+    document.documentElement.style.setProperty("--n", SIZE);
+    boardEl.innerHTML = "";
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      const c = document.createElement("div");
+      c.className = "grid-cell";
+      boardEl.appendChild(c);
+    }
+  }
+
+  // High score is tracked per grid size — a bigger board changes the game enough
+  // that scores (and the levels reached) aren't comparable across sizes. Both the
+  // best score and the max level ever reached are recorded.
+  function bestKey(size) { return "bestAscend_" + size; }
+  function bestLevelKey(size) { return "bestLevelAscend_" + size; }
+  function loadBest() {
+    best = parseInt(localStorage.getItem(bestKey(SIZE)) || "0", 10);
+    bestLevel = parseInt(localStorage.getItem(bestLevelKey(SIZE)) || "1", 10);
+    bestEl.textContent = best;
+    bestLevelEl.textContent = "Lv " + bestLevel;
+  }
+
+  // --- Levels & spawn pool ---------------------------------------------------
+  // Only composite (non-prime) numbers spawn. Play starts with the smallest
+  // composites and, every SPAWNS_PER_LEVEL spawns, the level ticks up and one
+  // larger composite joins the pool — so the numbers grow as you go. Small
+  // composites always stay in the pool; a fixed size-decay keeps them common so
+  // the board stays workable. (1 is never spawned — it's produced in-game by
+  // equal-number division; primes only ever appear as division results.)
+  const SPAWNS_PER_LEVEL = 10;   // spawns before the pool gains a bigger number
+  const START_POOL = 4;          // composites available at level 1: 4, 6, 8, 9
+  const K = 0.8;                 // size-decay: higher => stronger skew to small
+
+  // Number of prime factors with multiplicity, e.g. omega(12) = omega(2*2*3) = 3.
+  function omega(n) {
+    let count = 0, m = n;
+    for (let p = 2; p * p <= m; p++) while (m % p === 0) { m /= p; count++; }
+    if (m > 1) count++;
+    return count;
+  }
+  function isComposite(n) { return n >= 4 && !isPrime(n); }
+
+  // Ascending cache of composite numbers, extended on demand as levels deepen.
+  const COMPOSITES = [];
+  function ensureComposites(count) {
+    let n = COMPOSITES.length ? COMPOSITES[COMPOSITES.length - 1] + 1 : 4;
+    while (COMPOSITES.length < count) { if (isComposite(n)) COMPOSITES.push(n); n++; }
+  }
+
+  function levelFor(spawns) { return Math.floor(spawns / SPAWNS_PER_LEVEL) + 1; }
+  function poolSizeFor(level) { return START_POOL + (level - 1); }
+  function curLevel() { return levelFor(spawnCount); }
+  // The composites spawnable right now, given how many tiles have spawned.
+  function currentPool() {
+    const size = poolSizeFor(curLevel());
+    ensureComposites(size);
+    return COMPOSITES.slice(0, size);
+  }
+  // Draw a value from the current pool, skewed toward smaller composites.
+  function randomSpawnValue() {
+    const pool = currentPool();
+    let total = 0;
+    const cum = pool.map((n) => (total += omega(n) / Math.pow(n, K)));
+    const r = Math.random() * total;
+    for (let i = 0; i < pool.length; i++) if (r < cum[i]) return pool[i];
+    return pool[pool.length - 1];
+  }
+
+  // Two tiles combine when the smaller divides the larger. Equal numbers now
+  // divide too (a / a = 1), so a matching pair collapses into a 1. A 1 combines
+  // with any larger number and annihilates it; a pair of 1s annihilates as well.
+  function combinable(x, y) {
+    const a = Math.min(x, y), b = Math.max(x, y);
+    return b % a === 0;
+  }
+  // Resulting value of combining x and y: larger / smaller, or 0 ("annihilate /
+  // clear the cell") when the smaller is a 1.
+  function combineResult(x, y) {
+    const a = Math.min(x, y), b = Math.max(x, y);
+    if (a === 1) return 0;
+    return b / a;
+  }
+
+  function emptyGrid() {
+    return Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+  }
+
+  // --- Persistence: keep the in-progress game across tab closes -------------
+  const STATE_KEY = "stateAscend";
+  function saveState() {
+    const cells = grid.map((row) =>
+      row.map((c) => (c ? { id: c.id, value: c.value } : null)));
+    const data = {
+      grid: cells, score: score, idCounter: idCounter,
+      spawns: spawnCount, over: overlay.classList.contains("show")
+    };
+    try { localStorage.setItem(STATE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  function loadState() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem(STATE_KEY)); } catch (e) { return false; }
+    if (!data || !Array.isArray(data.grid) || SIZES.indexOf(data.grid.length) === -1) return false;
+    SIZE = data.grid.length;
+    localStorage.setItem("sizeAscend", String(SIZE));
+    applySize();
+    syncSizeButtons();
+    loadBest();
+    grid = data.grid.map((row) =>
+      row.map((c) => (c ? { id: c.id, value: c.value } : null)));
+    score = data.score || 0;
+    idCounter = data.idCounter || 0;
+    spawnCount = data.spawns || 0;
+    overlay.classList.remove("show");
+    render(true);
+    updateScore();
+    if (data.over) endGame();
+    return true;
+  }
+
+  function newGame() {
+    moveToken++;            // abort any in-flight replay
+    animating = false;
+    clearReadout();
+    hideDivisors();
+    setReplay(null);        // nothing to replay on a fresh board
+    grid = emptyGrid();
+    score = 0;
+    idCounter = 0;
+    spawnCount = 0;
+    loadBest();
+    overlay.classList.remove("show");
+    addRandom();
+    addRandom();
+    render(true);
+    updateScore();
+    saveState();
+  }
+
+  function addRandom() {
+    const empty = [];
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        if (!grid[r][c]) empty.push([r, c]);
+    if (!empty.length) return;
+    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+    const value = randomSpawnValue();
+    grid[r][c] = { id: ++idCounter, value: value, isNew: true };
+    spawnCount++;   // drives the level: every SPAWNS_PER_LEVEL spawns adds a bigger number
+  }
+
+  // Primes can't be broken down further (only a 1 clears them), so they get a
+  // distinct look: no fill, the value's color used for the number itself.
+  function isPrime(n) {
+    if (n < 2) return false;
+    for (let p = 2; p * p <= n; p++) if (n % p === 0) return false;
+    return true;
+  }
+
+  // Consistent color per value via hue rotation; bigger numbers use a smaller font.
+  function styleTile(el, v) {
+    if (v === 1) {
+      el.classList.add("one");
+    } else {
+      const color = "hsl(" + ((v * 47) % 360) + ", 62%, 56%)";
+      if (isPrime(v)) {
+        // Marked: transparent tile, color moves to the foreground + a faint ring.
+        el.style.background = "transparent";
+        el.style.color = color;
+        el.style.boxShadow = "inset 0 0 0 0.4vmin " + color;
+      } else {
+        el.style.background = color;
+        el.style.color = "#fff";
+      }
+    }
+    const digits = String(v).length;
+    const base = digits >= 4 ? 4.2 : digits === 3 ? 5.4 : 7;
+    el.style.fontSize = (base * 4 / SIZE) + "vmin";   // scale down on bigger grids
+  }
+
+  function posTransform(r, c) {
+    // gap is the same var used in CSS; tiles container already offset by gap.
+    return "translate(calc(" + c + " * (100% + var(--gap))), calc(" + r + " * (100% + var(--gap))))";
+  }
+
+  function render(initial) {
+    tilesEl.innerHTML = "";
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const cell = grid[r][c];
+        if (!cell) continue;
+        const el = document.createElement("div");
+        const pos = posTransform(r, c);
+        el.className = "tile";
+        styleTile(el, cell.value);
+        el.style.setProperty("--pos", pos);
+        el.style.transform = pos;
+        el.textContent = cell.value;
+        el.dataset.value = cell.value;
+        if (cell.merged) el.classList.add("pop");
+        if (cell.focus) el.classList.add("focus");
+        if (cell.isNew && !initial) el.classList.add("spawn");
+        if (cell.isNew && initial) el.classList.add("spawn");
+        tilesEl.appendChild(el);
+        cell.isNew = false;
+        cell.merged = false;
+        cell.focus = false;
+      }
+    }
+  }
+
+  function updateScore() {
+    scoreEl.textContent = score;
+    const level = curLevel();
+    levelEl.textContent = level;
+    if (score > best) {
+      best = score;
+      localStorage.setItem(bestKey(SIZE), String(best));
+    }
+    if (level > bestLevel) {
+      bestLevel = level;
+      localStorage.setItem(bestLevelKey(SIZE), String(bestLevel));
+      bestLevelEl.textContent = "Lv " + bestLevel;
+    }
+    bestEl.textContent = best;
+  }
+
+  // Rotate grid clockwise so we can always merge "left"
+  function rotate(g) {
+    const n = emptyGrid();
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        n[c][SIZE - 1 - r] = g[r][c];
+    return n;
+  }
+
+  // Same clockwise rotation, but for a single (r,c) point; mirrors rotate().
+  function rotatePoint(r, c, times) {
+    for (let i = 0; i < times; i++) { const nr = c, nc = SIZE - 1 - r; r = nr; c = nc; }
+    return [r, c];
+  }
+
+  // Transient flash at a board cell where an annihilation happened.
+  function spawnBurst(r, c) {
+    const el = document.createElement("div");
+    el.className = "burst";
+    const pos = posTransform(r, c);
+    el.style.setProperty("--pos", pos);
+    el.style.transform = pos;
+    el.addEventListener("animationend", () => el.remove());
+    tilesEl.appendChild(el);
+  }
+
+  // Brief board nudge, reused by the live move and replay on annihilation.
+  function shakeBoard() {
+    wrap.classList.remove("shake");
+    void wrap.offsetWidth;        // restart the animation
+    wrap.classList.add("shake");
+  }
+
+  function setReadout(text) {
+    readoutEl.textContent = text || "";
+    readoutEl.classList.toggle("show", !!text);
+  }
+  function clearReadout() { setReadout(""); }
+
+  function moveLeft(g) {
+    let moved = false;
+    for (let r = 0; r < SIZE; r++) {
+      const row = g[r].filter(Boolean);
+      for (let i = 0; i < row.length - 1; i++) {
+        const x = row[i].value, y = row[i + 1].value;
+        if (!combinable(x, y)) continue;
+        const res = combineResult(x, y);
+        // Score how much the numbers shrank (annihilation removes both).
+        score += x + y - res;
+        if (res === 0) {
+          // 1 annihilates its larger partner: clear both cells.
+          // Record the impact cell (working space) so move() can flash it.
+          bursts.push([r, i]);
+          row.splice(i, 2);
+        } else {
+          row[i] = { id: row[i].id, value: res, merged: true };
+          row.splice(i + 1, 1);
+        }
+      }
+      while (row.length < SIZE) row.push(null);
+      for (let c = 0; c < SIZE; c++) {
+        if ((g[r][c] && g[r][c].id) !== (row[c] && row[c].id) ||
+            (g[r][c] && g[r][c].value) !== (row[c] && row[c].value)) moved = true;
+        g[r][c] = row[c];
+      }
+    }
+    return moved;
+  }
+
+  // Remember the last board-changing move so it can be replayed on demand.
+  function setReplay(data) {
+    lastReplay = data;
+    replayBtn.disabled = !data;
+  }
+
+  // dir: 0=left,1=up,2=right,3=down
+  function move(dir) {
+    if (overlay.classList.contains("show")) return;
+    if (animating) return;                 // ignore input mid-replay
+    hideDivisors();                        // a move invalidates any open popover
+    // Capture the pre-move board and the step-by-step plan BEFORE mutating, so a
+    // later Replay can re-animate exactly this move. planMove is pure.
+    const preGrid = cloneGrid(grid);
+    const plan = planMove(dir);
+    let g = grid;
+    bursts = [];
+    // Rotate so the target direction becomes "left", slide, then rotate back.
+    // Pre + post rotations sum to a full turn so the grid orientation is restored.
+    for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
+    const moved = moveLeft(g);
+    for (let i = 0; i < dir; i++) g = rotate(g);
+    grid = g;
+    if (moved) {
+      addRandom();
+      render(false);
+      // Burst positions are in working space; rotate them back like the grid.
+      for (const [br, bc] of bursts) {
+        const [r, c] = rotatePoint(br, bc, dir);
+        spawnBurst(r, c);
+      }
+      if (bursts.length) shakeBoard();
+      updateScore();
+      setReplay({ preGrid: preGrid, frames: plan.frames, dir: dir });
+      if (isGameOver()) endGame();
+      saveState();
+    }
+  }
+
+  // Human-readable line for a single combine: the division being applied, or the
+  // special "a 1 clears its partner" annihilation.
+  function mergeText(lo, hi, res) {
+    return res === 0 ? "1 clears " + hi : hi + " ÷ " + lo + " = " + res;
+  }
+
+  // Break a move down in "left" space into replay frames: a slide frame, then —
+  // per combine — a "focus" frame highlighting the two tiles, then the merged /
+  // annihilated frame. Each frame carries its own deep-copied grid so per-tile
+  // flags don't leak. dir is only used to rotate frames back at render time.
+  function planMove(dir) {
+    let g = grid;
+    for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
+    const rows = [];
+    for (let r = 0; r < SIZE; r++)
+      rows.push(g[r].filter(Boolean).map((c) => ({ id: c.id, value: c.value })));
+
+    // Snapshot the current rows into a padded grid of fresh cells, optionally
+    // flagging cells in row `tag.r` (focus pair and/or the merged result).
+    function snapshot(tag) {
+      const snap = emptyGrid();
+      for (let r = 0; r < SIZE; r++)
+        for (let i = 0; i < rows[r].length; i++) {
+          const src = rows[r][i];
+          const cell = { id: src.id, value: src.value };
+          if (tag && tag.r === r) {
+            if (tag.focus && (i === tag.focus[0] || i === tag.focus[1])) cell.focus = true;
+            if (tag.merged === i) cell.merged = true;
+          }
+          snap[r][i] = cell;
+        }
+      return snap;
+    }
+
+    const frames = [{ grid: snapshot(null), kind: "slide" }];   // the slide
+    for (let r = 0; r < SIZE; r++) {
+      let i = 0;
+      while (i < rows[r].length - 1) {
+        const a = rows[r][i], b = rows[r][i + 1];
+        if (combinable(a.value, b.value)) {
+          const lo = Math.min(a.value, b.value), hi = Math.max(a.value, b.value);
+          const res = combineResult(a.value, b.value);
+          const text = mergeText(lo, hi, res);
+          frames.push({ grid: snapshot({ r, focus: [i, i + 1] }), kind: "focus", text });
+          if (res === 0) {
+            rows[r].splice(i, 2);
+            frames.push({ grid: snapshot(null), kind: "annih", text,
+                          scoreDelta: a.value + b.value, burst: { r, c: i } });
+          } else {
+            rows[r][i] = { id: a.id, value: res };
+            rows[r].splice(i + 1, 1);
+            frames.push({ grid: snapshot({ r, merged: i }), kind: "merge", text,
+                          scoreDelta: a.value + b.value - res });
+          }
+        }
+        i++;
+      }
+    }
+
+    // Did anything actually change? Compare the final left-space grid to the start.
+    const finalGrid = snapshot(null);
+    let moved = false;
+    for (let r = 0; r < SIZE && !moved; r++)
+      for (let c = 0; c < SIZE; c++) {
+        const o = g[r][c], n = finalGrid[r][c];
+        if ((o && o.id) !== (n && n.id) || (o && o.value) !== (n && n.value)) { moved = true; break; }
+      }
+    return { frames, moved };
+  }
+
+  // Re-animate the last move, purely as a visual aid — it never changes score or
+  // game state. Plays: the board as it was, the slide, then each combine one at a
+  // time (two tiles highlighted, a pill spelling out the division, then collapse),
+  // and finally snaps back to the real current board. Repeatable. A token lets
+  // New Game / size changes abort a replay that's already running.
+  async function replayLast() {
+    if (!lastReplay || animating) return;
+    if (overlay.classList.contains("show")) return;   // board is covered
+    hideDivisors();
+    animating = true;
+    const token = ++moveToken;
+    const ref = lastReplay;
+    const saved = grid;                  // the true current board (post-move + spawn)
+    function finish() { grid = saved; render(false); clearReadout(); animating = false; }
+
+    // 1) the board exactly as it was before the move
+    grid = cloneGrid(ref.preGrid);
+    render(false);
+    clearReadout();
+    await sleep(REPLAY_PRE_MS);
+
+    // 2) slide, then each combine
+    for (const f of ref.frames) {
+      if (token !== moveToken) { finish(); return; }
+      let fg = cloneGrid(f.grid);        // clone so frame flags survive repeats
+      for (let i = 0; i < ref.dir; i++) fg = rotate(fg);
+      grid = fg;
+      render(false);
+      setReadout(f.text);
+      if (f.kind === "annih") {
+        const [r, c] = rotatePoint(f.burst.r, f.burst.c, ref.dir);
+        spawnBurst(r, c);
+        shakeBoard();
+      }
+      await sleep(f.kind === "slide" ? REPLAY_SLIDE_MS
+                : f.kind === "focus" ? REPLAY_FOCUS_MS : REPLAY_STEP_MS);
+    }
+    if (token !== moveToken) { finish(); return; }
+    await sleep(REPLAY_STEP_MS);
+    finish();                            // settle back to the real current board
+  }
+
+  function isGameOver() {
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++) {
+        if (!grid[r][c]) return false;
+        const right = grid[r][c + 1], down = r < SIZE - 1 ? grid[r + 1][c] : null;
+        if (c < SIZE - 1 && right && combinable(grid[r][c].value, right.value)) return false;
+        if (down && combinable(grid[r][c].value, down.value)) return false;
+      }
+    return true;
+  }
+
+  function endGame() {
+    overlayMsg.textContent = "Game Over";
+    overlay.classList.add("show");
+  }
+
+  // ---- Input: keyboard ----
+  window.addEventListener("keydown", (e) => {
+    const map = { ArrowLeft: 0, ArrowUp: 1, ArrowRight: 2, ArrowDown: 3,
+                  a: 0, w: 1, d: 2, s: 3 };
+    if (e.key in map) { e.preventDefault(); move(map[e.key]); }
+    else if (e.key === "r" || e.key === "R") { e.preventDefault(); replayLast(); }
+  });
+
+  // ---- Replay last move ----
+  replayBtn.addEventListener("click", replayLast);
+
+  // ---- Tap a tile to see its divisors ----
+  const popEl = document.getElementById("divisorsPop");
+  let popOpenFor = null;               // the tile element the popover currently describes
+
+  // All divisors of n, ascending (1 and n included).
+  function divisorsOf(n) {
+    const d = [];
+    for (let i = 1; i * i <= n; i++)
+      if (n % i === 0) { d.push(i); if (i !== n / i) d.push(n / i); }
+    return d.sort((a, b) => a - b);
+  }
+
+  function hideDivisors() { popEl.classList.remove("show"); popOpenFor = null; }
+
+  function showDivisors(el) {
+    const v = parseInt(el.dataset.value, 10);
+    if (!v) return;
+    // Only the proper divisors (1 and the number itself are dropped) — those are
+    // the values it can actually combine with.
+    const divs = divisorsOf(v).filter((d) => d !== 1 && d !== v);
+    const prime = isPrime(v);
+    popEl.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "dp-title";
+    title.textContent = "Divisors of " + v + (prime ? " · prime" : "");
+    popEl.appendChild(title);
+    if (divs.length) {
+      const list = document.createElement("div");
+      list.className = "dp-list";
+      for (const d of divs) {
+        const chip = document.createElement("span");
+        chip.className = "dp-chip";
+        chip.textContent = d;
+        list.appendChild(chip);
+      }
+      popEl.appendChild(list);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "dp-empty";
+      empty.textContent = "No divisors in between";
+      popEl.appendChild(empty);
+    }
+    popEl.classList.add("show");       // show first so we can measure it
+    popOpenFor = el;
+    positionPop(el);
+  }
+
+  // Float the popover just above the tapped tile, flipping below / clamping to
+  // the viewport when there isn't room.
+  function positionPop(el) {
+    const r = el.getBoundingClientRect(), p = popEl.getBoundingClientRect(), m = 8;
+    let top = r.top - p.height - m;
+    if (top < m) top = r.bottom + m;
+    let left = r.left + r.width / 2 - p.width / 2;
+    left = Math.max(m, Math.min(left, window.innerWidth - p.width - m));
+    popEl.style.top = top + "px";
+    popEl.style.left = left + "px";
+  }
+
+  tilesEl.addEventListener("click", (e) => {
+    if (animating) return;             // tiles are mid-replay; don't pin a popover
+    const el = e.target.closest(".tile");
+    if (!el) return;
+    if (popOpenFor === el) { hideDivisors(); return; }   // tap again to dismiss
+    showDivisors(el);
+  });
+  // Any tap/click that isn't on a tile or inside the popover closes it.
+  document.addEventListener("click", (e) => {
+    if (popOpenFor && !e.target.closest(".tile") && !e.target.closest("#divisorsPop")) hideDivisors();
+  });
+  window.addEventListener("resize", hideDivisors);
+
+  // ---- Input: touch swipe ----
+  let startX = 0, startY = 0, tracking = false;
+  const THRESHOLD = 24;
+  const wrap = document.querySelector(".board-wrap");
+  wrap.addEventListener("touchstart", (e) => {
+    const t = e.changedTouches[0];
+    startX = t.clientX; startY = t.clientY; tracking = true;
+  }, { passive: true });
+  wrap.addEventListener("touchend", (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < THRESHOLD) return;
+    if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 2 : 0);
+    else move(dy > 0 ? 3 : 1);
+  }, { passive: true });
+
+  document.getElementById("new-game").addEventListener("click", newGame);
+  document.getElementById("overlay-btn").addEventListener("click", newGame);
+
+  // ---- Grid-size selector ----
+  const sizesEl = document.getElementById("sizes");
+  function syncSizeButtons() {
+    for (const btn of sizesEl.children)
+      btn.classList.toggle("active", parseInt(btn.dataset.size, 10) === SIZE);
+  }
+  sizesEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const n = parseInt(btn.dataset.size, 10);
+    if (SIZES.indexOf(n) === -1) return;
+    SIZE = n;
+    localStorage.setItem("sizeAscend", String(SIZE));
+    applySize();
+    syncSizeButtons();
+    newGame();   // choosing a grid size starts a fresh game at that size
+  });
+
+  applySize();
+  syncSizeButtons();
+  // Resume a saved game if one exists; otherwise start fresh.
+  if (!loadState()) newGame();
+})();
+</script>
+</body>
+</html>
