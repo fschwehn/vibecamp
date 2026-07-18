@@ -165,7 +165,7 @@
     font-size: 13vmin;
     font-weight: 800;
     letter-spacing: -0.02em;
-    color: var(--accent);
+    color: var(--level-color, var(--accent));
     text-shadow: 0 0.4vmin 2vmin rgba(0, 0, 0, 0.55);
     pointer-events: none;
     opacity: 0;
@@ -180,7 +180,7 @@
   .board.levelpulse { animation: levelpulse 0.7s ease-out; }
   @keyframes levelpulse {
     0%   { box-shadow: 0 0 0 0 transparent; }
-    30%  { box-shadow: 0 0 7vmin 0.5vmin var(--accent); }
+    30%  { box-shadow: 0 0 7vmin 0.5vmin var(--level-color, var(--accent)); }
     100% { box-shadow: 0 0 0 0 transparent; }
   }
 
@@ -560,12 +560,19 @@
     return true;
   }
 
-  // Consistent color per value via hue rotation; bigger numbers use a smaller font.
+  // Tiles are monochrome: every tile shares the current level's hue, so the whole
+  // board recolors as one when the level ticks up. Values are still told apart by
+  // shade — bigger numbers sit darker within that single hue. Bigger numbers also
+  // use a smaller font.
+  function tileLightness(v) {
+    // Small numbers light, large numbers deep; clamped to stay readable.
+    return Math.max(30, Math.min(64, 64 - 7 * Math.log2(v)));
+  }
   function styleTile(el, v) {
     if (v === 1) {
       el.classList.add("one");
     } else {
-      const color = "hsl(" + ((v * 47) % 360) + ", 62%, 56%)";
+      const color = "hsl(" + levelHue(curLevel()) + ", 58%, " + tileLightness(v) + "%)";
       if (isPrime(v)) {
         // Marked: transparent tile, color moves to the foreground + a faint ring.
         el.style.background = "transparent";
@@ -612,13 +619,16 @@
     }
   }
 
-  // Each level gives the game a fresh accent color, rotating the hue a step at a
-  // time. Level 1 lands on the original gold, so the familiar look is preserved
-  // and every level-up visibly recolors the UI (glyph, buttons, level pop, glow).
-  const ACCENT_BASE_HUE = 40, ACCENT_HUE_STEP = 25;
-  function applyAccent(level) {
-    const hue = (ACCENT_BASE_HUE + (level - 1) * ACCENT_HUE_STEP) % 360;
-    document.documentElement.style.setProperty("--accent", "hsl(" + hue + ", 88%, 58%)");
+  // Each level owns a hue, rotated a step at a time. The tiles are tinted with it
+  // (see styleTile) so the whole board recolors on every level-up; level 1 keeps
+  // the original warm tone. The level pop + board glow follow the same hue via the
+  // --level-color CSS variable, so the celebration matches the new tiles. The UI
+  // accent (glyph, buttons) stays a fixed gold.
+  const HUE_BASE = 40, HUE_STEP = 25;
+  function levelHue(level) { return (HUE_BASE + (level - 1) * HUE_STEP) % 360; }
+  function applyLevelColor(level) {
+    document.documentElement.style.setProperty(
+      "--level-color", "hsl(" + levelHue(level) + ", 58%, 56%)");
   }
 
   // Celebrate a level-up: a big "Level N" pop over the board and a glow pulse.
@@ -637,7 +647,7 @@
     scoreEl.textContent = score;
     const level = curLevel();
     levelEl.textContent = level;
-    applyAccent(level);
+    applyLevelColor(level);
     if (score > best) {
       best = score;
       localStorage.setItem(bestKey(SIZE), String(best));
