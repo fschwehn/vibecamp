@@ -397,8 +397,8 @@
   // composites always stay in the pool; a fixed size-decay keeps them common so
   // the board stays workable. (1 is never spawned — it's produced in-game by
   // equal-number division; primes only ever appear as division results.)
-  const SPAWNS_PER_LEVEL = 10;   // spawns before the pool gains a bigger number
-  const START_POOL = 4;          // composites available at level 1: 4, 6, 8, 9
+  const SPAWNS_PER_LEVEL = 15;   // spawns before the pool gains a bigger number
+  const START_POOL = 10;         // composites at level 1: 4,6,8,9,10,12,14,15,16,18
   const K = 0.8;                 // size-decay: higher => stronger skew to small
 
   // Number of prime factors with multiplicity, e.g. omega(12) = omega(2*2*3) = 3.

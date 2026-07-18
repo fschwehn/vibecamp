@@ -44,10 +44,10 @@ Once GitHub Pages is enabled, the arcade is live at:
 
 - A leveled variant of **Divide** — same slide-and-divide rules, but the spawn
   pool is different and it grows as you play.
-- **Only composite (non-prime) numbers spawn**, starting with the smallest ones
-  (`4, 6, 8, 9`). Primes only ever show up as *results* of a division; `1`s are
-  still produced in-game when two equal tiles divide.
-- **Levels:** every 10 spawns, the level ticks up and one bigger composite joins
+- **Only composite (non-prime) numbers spawn**, starting with the ten smallest
+  (`4, 6, 8, 9, 10, 12, 14, 15, 16, 18`). Primes only ever show up as *results*
+  of a division; `1`s are still produced in-game when two equal tiles divide.
+- **Levels:** every 15 spawns, the level ticks up and one bigger composite joins
   the spawn pool. Small numbers stay in the mix, so the board keeps moving while
   the ceiling slowly rises.
 - Pick a **grid size** (4×4 / 5×5 / 6×6). There's no difficulty setting — the
