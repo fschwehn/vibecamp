@@ -568,19 +568,64 @@
     // Small numbers light, large numbers deep; clamped to stay readable.
     return Math.max(30, Math.min(64, 64 - 7 * Math.log2(v)));
   }
+  // --- Contrast helpers ------------------------------------------------------
+  // Legibility has to hold across all 14 level hues, so text/prime colors are
+  // chosen by WCAG relative luminance rather than a fixed shade.
+  function hslToRgb(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) { r = c; g = x; }
+    else if (h < 120) { r = x; g = c; }
+    else if (h < 180) { g = c; b = x; }
+    else if (h < 240) { g = x; b = c; }
+    else if (h < 300) { r = x; b = c; }
+    else { r = c; b = x; }
+    return [r + m, g + m, b + m];
+  }
+  function srgbLum(rgb) {
+    const lin = rgb.map((v) =>
+      v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  }
+  function relLuminance(h, s, l) { return srgbLum(hslToRgb(h, s, l)); }
+  const LUM_DARK = srgbLum([0x1b, 0x1a, 0x26].map((x) => x / 255));   // dark ink
+  const LUM_LIGHT = srgbLum([0xf4, 0xf3, 0xff].map((x) => x / 255));  // light ink
+  const LUM_CELL = srgbLum([0x3a, 0x38, 0x50].map((x) => x / 255));   // empty cell
+
+  // Dark ink or light ink — whichever actually contrasts the fill better, so the
+  // number stays readable whether the level hue is bright (yellow) or dark (blue).
+  function inkFor(h, s, l) {
+    const bg = relLuminance(h, s, l);
+    const cDark = (bg + 0.05) / (LUM_DARK + 0.05);
+    const cLight = (LUM_LIGHT + 0.05) / (bg + 0.05);
+    return cDark >= cLight ? "#1b1a26" : "#f4f3ff";
+  }
+  // Primes are no-fill + ringed, so their number sits on the dark board directly.
+  // Pick the least-bright shade of the hue that still clears the board comfortably
+  // (~4:1) — vivid where the hue is naturally bright, lightened where it's dark.
+  function primeColor(h) {
+    for (let L = 58; L <= 88; L += 2)
+      if (relLuminance(h, 0.65, L / 100) >= 0.34) return "hsl(" + h + ", 65%, " + L + "%)";
+    return "hsl(" + h + ", 60%, 90%)";
+  }
+
   function styleTile(el, v) {
     if (v === 1) {
       el.classList.add("one");
     } else {
-      const color = "hsl(" + levelHue(curLevel()) + ", 58%, " + tileLightness(v) + "%)";
+      const hue = levelHue(curLevel());
       if (isPrime(v)) {
-        // Marked: transparent tile, color moves to the foreground + a faint ring.
+        // Marked: transparent tile, a bright ring + number in the foreground.
+        const color = primeColor(hue);
         el.style.background = "transparent";
         el.style.color = color;
         el.style.boxShadow = "inset 0 0 0 0.4vmin " + color;
       } else {
-        el.style.background = color;
-        el.style.color = "#fff";
+        const l = tileLightness(v);
+        el.style.background = "hsl(" + hue + ", 58%, " + l + "%)";
+        el.style.color = inkFor(hue, 0.58, l / 100);
       }
     }
     const digits = String(v).length;
