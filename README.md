@@ -49,7 +49,9 @@ Once GitHub Pages is enabled, the arcade is live at:
   of a division; `1`s are still produced in-game when two equal tiles divide.
 - **Levels:** every 15 spawns, the level ticks up and one bigger composite joins
   the spawn pool. Small numbers stay in the mix, so the board keeps moving while
-  the ceiling slowly rises.
+  the ceiling slowly rises. Each level-up pops a big **Level N** over the board,
+  pulses the board, and shifts the game's accent color — so every level looks a
+  little different.
 - Pick a **grid size** (4×4 / 5×5 / 6×6). There's no difficulty setting — the
   levels are the difficulty curve.
 - The header shows your current **Score**, current **Level**, and **Best** — and

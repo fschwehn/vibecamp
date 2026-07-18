@@ -153,6 +153,37 @@
     75% { transform: translate(-0.8vmin, 0.4vmin); }
   }
 
+  /* Level-up celebration: a big "Level N" pop over the board + a glow pulse on
+     the board. Triggered once each time the level ticks up. */
+  .levelup {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13vmin;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    text-shadow: 0 0.4vmin 2vmin rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+    opacity: 0;
+  }
+  .levelup.show { animation: levelup 1.15s cubic-bezier(0.2, 0.7, 0.3, 1) forwards; }
+  @keyframes levelup {
+    0%   { opacity: 0; transform: scale(0.4); }
+    22%  { opacity: 1; transform: scale(1.06); }
+    68%  { opacity: 1; transform: scale(1.0); }
+    100% { opacity: 0; transform: scale(1.3); }
+  }
+  .board.levelpulse { animation: levelpulse 0.7s ease-out; }
+  @keyframes levelpulse {
+    0%   { box-shadow: 0 0 0 0 transparent; }
+    30%  { box-shadow: 0 0 7vmin 0.5vmin var(--accent); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
   .tile { background: #6c5ce7; color: #fff; }
   /* Inert "1" tiles: muted, locked-looking. Only a pair of 1s can clear. */
   .tile.one {
@@ -310,6 +341,7 @@
   <div class="board-wrap">
     <div class="board" id="board"></div>
     <div class="tiles" id="tiles"></div>
+    <div class="levelup" id="levelup" aria-hidden="true"></div>
     <div class="overlay" id="overlay">
       <div class="msg" id="overlay-msg">Game Over</div>
       <button id="overlay-btn">Try again</button>
@@ -348,6 +380,7 @@
   const levelEl = document.getElementById("level");
   const bestEl = document.getElementById("best");
   const bestLevelEl = document.getElementById("bestLevel");
+  const levelupEl = document.getElementById("levelup");
   const overlay = document.getElementById("overlay");
   const overlayMsg = document.getElementById("overlay-msg");
 
@@ -493,6 +526,7 @@
     clearReadout();
     hideDivisors();
     setReplay(null);        // nothing to replay on a fresh board
+    levelupEl.classList.remove("show");   // clear any in-flight level-up pop
     grid = emptyGrid();
     score = 0;
     idCounter = 0;
@@ -578,10 +612,32 @@
     }
   }
 
+  // Each level gives the game a fresh accent color, rotating the hue a step at a
+  // time. Level 1 lands on the original gold, so the familiar look is preserved
+  // and every level-up visibly recolors the UI (glyph, buttons, level pop, glow).
+  const ACCENT_BASE_HUE = 40, ACCENT_HUE_STEP = 25;
+  function applyAccent(level) {
+    const hue = (ACCENT_BASE_HUE + (level - 1) * ACCENT_HUE_STEP) % 360;
+    document.documentElement.style.setProperty("--accent", "hsl(" + hue + ", 88%, 58%)");
+  }
+
+  // Celebrate a level-up: a big "Level N" pop over the board and a glow pulse.
+  // The reflow (offsetWidth) restarts the CSS animations so rapid levels retrigger.
+  function celebrateLevel(level) {
+    levelupEl.textContent = "Level " + level;
+    levelupEl.classList.remove("show");
+    void levelupEl.offsetWidth;
+    levelupEl.classList.add("show");
+    boardEl.classList.remove("levelpulse");
+    void boardEl.offsetWidth;
+    boardEl.classList.add("levelpulse");
+  }
+
   function updateScore() {
     scoreEl.textContent = score;
     const level = curLevel();
     levelEl.textContent = level;
+    applyAccent(level);
     if (score > best) {
       best = score;
       localStorage.setItem(bestKey(SIZE), String(best));
@@ -677,6 +733,7 @@
     // Capture the pre-move board and the step-by-step plan BEFORE mutating, so a
     // later Replay can re-animate exactly this move. planMove is pure.
     const preGrid = cloneGrid(grid);
+    const prevLevel = curLevel();          // to detect a level-up after the spawn
     const plan = planMove(dir);
     let g = grid;
     bursts = [];
@@ -696,6 +753,7 @@
       }
       if (bursts.length) shakeBoard();
       updateScore();
+      if (curLevel() > prevLevel) celebrateLevel(curLevel());
       setReplay({ preGrid: preGrid, frames: plan.frames, dir: dir });
       if (isGameOver()) endGame();
       saveState();
