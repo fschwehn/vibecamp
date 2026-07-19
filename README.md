@@ -13,6 +13,10 @@ GitHub Pages. No build step, no dependencies: each game is a single HTML file.
 - `ascend.html` — **Ascend**, a leveled variant of Divide: only composite
   (non-prime) numbers spawn, starting small, and the spawn pool grows a level at
   a time — the deeper you go, the bigger the numbers.
+- `collapse.html` — **Collapse**, a divide *puzzle*: you start with a full board
+  and no spawns, and must swipe to slide-and-divide until a single tile remains.
+  Every level is generated in reverse (and solver-checked) so it's guaranteed
+  solvable; clear one to get a harder, bigger level.
 - Add a new game by dropping a self-contained `<name>.html` in the repo and
   adding one entry to the `GAMES` array in `index.html`.
 
@@ -58,6 +62,24 @@ Once GitHub Pages is enabled, the arcade is live at:
 - The header shows your current **Score**, current **Level**, and **Best** — and
   the Best box also shows the **max level reached**. Score, best score, and max
   level are saved per grid size, along with your in-progress game.
+
+## Collapse — how to play
+
+- A **puzzle** built on Divide's rules. You start with a **full board** of numbers
+  and **no tiles ever spawn** — your job is to **reduce the whole board to a single
+  tile**.
+- **Swipe** (or arrow keys / WASD) to slide every tile to a wall; adjacent tiles
+  combine when one divides the other (`larger ÷ smaller`; equal pairs → `1`, and a
+  `1` is a divide-through identity — no annihilation here).
+- Reduce everything to **one tile** to solve the level; each solve hands you a
+  **harder, sometimes bigger** level (4×4 → 5×5 → 6×6, with larger numbers and more
+  prime factors in play).
+- **Undo** (`u`), **Restart** (`r`) the level, or ask for a **Hint** (`h`) — the hint
+  flashes the direction of a known solving move (and warns you if the current
+  position is a dead end).
+- Every level is generated **in reverse** from a single tile and then
+  **solver-verified**, so it is guaranteed to be solvable. Level, moves, best level
+  reached, and your in-progress board are saved on your device.
 
 ## Enabling GitHub Pages (one-time)
 
