@@ -656,7 +656,7 @@
   // on a cool tone. The level pop + board glow follow the same hue via the
   // --level-color CSS variable, so the celebration matches the new tiles. The UI
   // accent (glyph, buttons) stays a fixed gold.
-  const HUE_BASE = 200, HUE_STEP = 25;
+  const HUE_BASE = 200, HUE_STEP = 29;
   function levelHue(level) { return (HUE_BASE + (level - 1) * HUE_STEP) % 360; }
   function applyLevelColor(level) {
     document.documentElement.style.setProperty(
