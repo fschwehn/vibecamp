@@ -13,6 +13,9 @@ GitHub Pages. No build step, no dependencies: each game is a single HTML file.
 - `ascend.html` — **Ascend**, a leveled variant of Divide: only composite
   (non-prime) numbers spawn, starting small, and the spawn pool grows a level at
   a time — the deeper you go, the bigger the numbers.
+- `emerge.html` — **Emerge**, an Ascend variant that drops the prime/composite
+  distinction: *every* number spawns (primes included), weighted by size alone,
+  and the spawn pool grows a level at a time just like Ascend.
 - `collapse.html` — **Collapse**, a divide *puzzle*: you start with a full board
   and no spawns, and must swipe to slide-and-divide until a single tile remains.
   Every level is generated in reverse (and solver-checked) so it's guaranteed
@@ -62,6 +65,24 @@ Once GitHub Pages is enabled, the arcade is live at:
 - The header shows your current **Score**, current **Level**, and **Best** — and
   the Best box also shows the **max level reached**. Score, best score, and max
   level are saved per grid size, along with your in-progress game.
+
+## Emerge — how to play
+
+- A variant of **Ascend** with the same slide-and-divide rules and level curve,
+  but it **stops treating primes as special at spawn time**.
+- **Every number spawns** — primes *and* composites, starting with the ten
+  smallest (`2, 3, 4, 5, 6, 7, 8, 9, 10, 11`). The draw is skewed toward smaller
+  numbers by **size alone**, so a prime and a composite of the same size are
+  equally likely. Spawned primes still get Ascend's distinct ringed, no-fill
+  look, so you can spot them at a glance. `1`s are still produced in-game when
+  two equal tiles divide.
+- **Levels** work exactly like Ascend: every 15 spawns the level ticks up, one
+  bigger number joins the pool, a big **Level N** pops over the board, and the
+  tiles recolor to that level's hue (Emerge opens on a cool tone rather than
+  Ascend's warm one).
+- Pick a **grid size** (4×4 / 5×5 / 6×6). The header shows **Score**, **Level**,
+  and **Best** (with the max level reached). Everything is saved per grid size —
+  separately from Ascend — along with your in-progress game.
 
 ## Collapse — how to play
 
