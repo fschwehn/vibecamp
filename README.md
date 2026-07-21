@@ -76,10 +76,10 @@ Once GitHub Pages is enabled, the arcade is live at:
   Spawned primes still get Ascend's distinct ringed, no-fill look, so you can
   spot them at a glance. `1`s are still produced in-game when two equal tiles
   divide.
-- **Levels** work like Ascend but climb faster: every 8 spawns the level ticks
-  up, one bigger number joins the pool, a big **Level N** pops over the board,
-  and the tiles recolor to that level's hue (Emerge opens on a cool tone rather
-  than Ascend's warm one).
+- **Levels** work like Ascend but in fewer, chunkier steps: every 15 spawns the
+  level ticks up and *two* bigger numbers join the pool at once, a big **Level N**
+  pops over the board, and the tiles recolor to that level's hue (Emerge opens on
+  a cool tone rather than Ascend's warm one).
 - Pick a **grid size** (4×4 / 5×5 / 6×6). The header shows **Score**, **Level**,
   and **Best** (with the max level reached). Everything is saved per grid size —
   separately from Ascend — along with your in-progress game. **↺ Reset best**

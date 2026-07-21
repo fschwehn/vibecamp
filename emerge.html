@@ -440,17 +440,19 @@
   // --- Levels & spawn pool ---------------------------------------------------
   // Every number spawns — primes and composites alike. Play starts with the
   // fourteen smallest numbers (2..15) and, every SPAWNS_PER_LEVEL spawns, the
-  // level ticks up and one larger number joins the pool — so the numbers grow as
-  // you go. Small numbers always stay in the pool; a fixed size-decay keeps them
-  // common so the board stays workable, and size is the *only* thing that skews
-  // the draw (a prime and a composite of the same size are equally likely). (1 is
-  // never spawned — it's produced in-game by equal-number division.)
-  const SPAWNS_PER_LEVEL = 8;    // spawns before the pool gains a bigger number
+  // level ticks up and POOL_STEP larger numbers join the pool — so the numbers
+  // grow as you go, in fewer but chunkier level jumps. Small numbers always stay
+  // in the pool; a fixed size-decay keeps them common so the board stays
+  // workable, and size is the *only* thing that skews the draw (a prime and a
+  // composite of the same size are equally likely). (1 is never spawned — it's
+  // produced in-game by equal-number division.)
+  const SPAWNS_PER_LEVEL = 15;   // spawns before the level ticks up
   const START_POOL = 14;         // numbers at level 1: 2,3,4,...,15
+  const POOL_STEP = 2;           // bigger numbers added to the pool per level
   const K = 0.7;                 // size-decay: higher => stronger skew to small
 
   function levelFor(spawns) { return Math.floor(spawns / SPAWNS_PER_LEVEL) + 1; }
-  function poolSizeFor(level) { return START_POOL + (level - 1); }
+  function poolSizeFor(level) { return START_POOL + (level - 1) * POOL_STEP; }
   function curLevel() { return levelFor(spawnCount); }
   // The numbers spawnable right now: the first poolSize integers from 2 up.
   function currentPool() {
