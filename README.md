@@ -70,19 +70,20 @@ Once GitHub Pages is enabled, the arcade is live at:
 
 - A variant of **Ascend** with the same slide-and-divide rules and level curve,
   but it **stops treating primes as special at spawn time**.
-- **Every number spawns** — primes *and* composites, starting with the ten
-  smallest (`2, 3, 4, 5, 6, 7, 8, 9, 10, 11`). The draw is skewed toward smaller
-  numbers by **size alone**, so a prime and a composite of the same size are
-  equally likely. Spawned primes still get Ascend's distinct ringed, no-fill
-  look, so you can spot them at a glance. `1`s are still produced in-game when
-  two equal tiles divide.
-- **Levels** work exactly like Ascend: every 15 spawns the level ticks up, one
-  bigger number joins the pool, a big **Level N** pops over the board, and the
-  tiles recolor to that level's hue (Emerge opens on a cool tone rather than
-  Ascend's warm one).
+- **Every number spawns** — primes *and* composites, starting with the fourteen
+  smallest (`2, 3, 4, … , 15`). The draw is skewed toward smaller numbers by
+  **size alone**, so a prime and a composite of the same size are equally likely.
+  Spawned primes still get Ascend's distinct ringed, no-fill look, so you can
+  spot them at a glance. `1`s are still produced in-game when two equal tiles
+  divide.
+- **Levels** work like Ascend but climb faster: every 8 spawns the level ticks
+  up, one bigger number joins the pool, a big **Level N** pops over the board,
+  and the tiles recolor to that level's hue (Emerge opens on a cool tone rather
+  than Ascend's warm one).
 - Pick a **grid size** (4×4 / 5×5 / 6×6). The header shows **Score**, **Level**,
   and **Best** (with the max level reached). Everything is saved per grid size —
-  separately from Ascend — along with your in-progress game.
+  separately from Ascend — along with your in-progress game. **↺ Reset best**
+  clears the saved best score and level for the current grid size.
 
 ## Collapse — how to play
 

@@ -360,6 +360,7 @@
   <footer>
     <p class="hint">Every number spawns — bigger ones join the pool each level.</p>
     <div class="footer-btns">
+      <button id="reset-best" class="secondary">↺ Reset best</button>
       <button id="replay" class="secondary" disabled>↻ Replay</button>
       <button id="new-game">New Game</button>
     </div>
@@ -423,17 +424,30 @@
     bestLevelEl.textContent = "Lv " + bestLevel;
   }
 
+  // Wipe the saved Best score + max level for the current grid size (other sizes
+  // keep theirs). Guarded by a confirm() since it's destructive. Note a game in
+  // progress will re-populate Best from its own score on the next move.
+  function resetBest() {
+    if (!confirm("Reset the best score and level for the " + SIZE + "×" + SIZE + " grid?")) return;
+    localStorage.removeItem(bestKey(SIZE));
+    localStorage.removeItem(bestLevelKey(SIZE));
+    best = 0;
+    bestLevel = 1;
+    bestEl.textContent = best;
+    bestLevelEl.textContent = "Lv " + bestLevel;
+  }
+
   // --- Levels & spawn pool ---------------------------------------------------
-  // Every number spawns — primes and composites alike. Play starts with the ten
-  // smallest numbers (2..11) and, every SPAWNS_PER_LEVEL spawns, the level ticks
-  // up and one larger number joins the pool — so the numbers grow as you go.
-  // Small numbers always stay in the pool; a fixed size-decay keeps them common
-  // so the board stays workable, and size is the *only* thing that skews the
-  // draw (a prime and a composite of the same size are equally likely). (1 is
+  // Every number spawns — primes and composites alike. Play starts with the
+  // fourteen smallest numbers (2..15) and, every SPAWNS_PER_LEVEL spawns, the
+  // level ticks up and one larger number joins the pool — so the numbers grow as
+  // you go. Small numbers always stay in the pool; a fixed size-decay keeps them
+  // common so the board stays workable, and size is the *only* thing that skews
+  // the draw (a prime and a composite of the same size are equally likely). (1 is
   // never spawned — it's produced in-game by equal-number division.)
-  const SPAWNS_PER_LEVEL = 15;   // spawns before the pool gains a bigger number
-  const START_POOL = 10;         // numbers at level 1: 2,3,4,5,6,7,8,9,10,11
-  const K = 0.8;                 // size-decay: higher => stronger skew to small
+  const SPAWNS_PER_LEVEL = 8;    // spawns before the pool gains a bigger number
+  const START_POOL = 14;         // numbers at level 1: 2,3,4,...,15
+  const K = 0.7;                 // size-decay: higher => stronger skew to small
 
   function levelFor(spawns) { return Math.floor(spawns / SPAWNS_PER_LEVEL) + 1; }
   function poolSizeFor(level) { return START_POOL + (level - 1); }
@@ -1033,6 +1047,7 @@
 
   document.getElementById("new-game").addEventListener("click", newGame);
   document.getElementById("overlay-btn").addEventListener("click", newGame);
+  document.getElementById("reset-best").addEventListener("click", resetBest);
 
   // ---- Grid-size selector ----
   const sizesEl = document.getElementById("sizes");
